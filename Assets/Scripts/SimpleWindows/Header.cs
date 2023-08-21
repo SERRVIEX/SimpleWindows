@@ -28,8 +28,7 @@ namespace SimpleWindow
         [field: SerializeField] public ScrollRect ScrollRect { get; private set; }
         [SerializeField] private TabView _tabPrefab;
 
-        public List<TabView> _tabs = new List<TabView>();
-        public int TabCount => _tabs.Count;
+        public List<TabView> Tabs = new List<TabView>();
 
         // Methods
 
@@ -41,8 +40,8 @@ namespace SimpleWindow
                 item.Header.RemoveTab(item);
             
             item.Header = this;
-            if(!_tabs.Contains(item))
-                _tabs.Add(item);
+            if(!Tabs.Contains(item))
+                Tabs.Add(item);
 
             OrderBySiblingIndex();
             item.transform.SetParent(ScrollRect.content);
@@ -53,7 +52,7 @@ namespace SimpleWindow
             Header previousRoot = item.Header;
 
             item.Header = null;
-            _tabs.Remove(item);
+            Tabs.Remove(item);
             OrderBySiblingIndex();
             item.transform.SetParent(WindowsManager.RectTransform);
 
@@ -68,12 +67,12 @@ namespace SimpleWindow
 
                 if (Window.Parent != null && Window.Parent.ChildCount == 0)
                 {
-                    if (_tabs.Count == 0)
+                    if (Tabs.Count == 0)
                         WindowsManager.DestroyController(Window);
                 }
                 else
                 {
-                    if (_tabs.Count == 0)
+                    if (Tabs.Count == 0)
                         WindowsManager.DestroyController(Window);
                 }
             });
@@ -86,48 +85,48 @@ namespace SimpleWindow
             tabView.Header = this;
 
             controller.transform.SetParent(Window.Content);
-            _tabs.Add(tabView);
+            Tabs.Add(tabView);
 
-            Select(_tabs[_tabs.Count - 1]);
+            Select(Tabs[Tabs.Count - 1]);
         }
 
         public void Select(TabView item)
         {
-            int index = _tabs.IndexOf(item);
+            int index = Tabs.IndexOf(item);
             Select(index);
         }
 
         private void Select(int index)
         {
-            if (_tabs.Count == 0)
+            if (Tabs.Count == 0)
                 return;
 
-            for (int i = 0; i < _tabs.Count; i++)
-                _tabs[i].Active = false;
+            for (int i = 0; i < Tabs.Count; i++)
+                Tabs[i].Active = false;
 
-            _tabs[index].Active = true;
+            Tabs[index].Active = true;
 
             WindowsManager.MarkDirty();
         }
 
         public void DestroyTab(TabView item)
         {
-            _tabs.Remove(item);
+            Tabs.Remove(item);
 
             Destroy(item.Window.gameObject);
             Destroy(item.gameObject);
 
-            if (_tabs.Count == 0)
+            if (Tabs.Count == 0)
                 WindowsManager.DestroyController(Window);
         }
 
         public bool FindControllerOfType<T>(out TabView item) where T : Window
         {
-            for (int i = 0; i < _tabs.Count; i++)
+            for (int i = 0; i < Tabs.Count; i++)
             {
-                if (_tabs[i].Window.GetType() == typeof(T))
+                if (Tabs[i].Window.GetType() == typeof(T))
                 {
-                    item = _tabs[i];
+                    item = Tabs[i];
                     return true;
                 }
             }
@@ -138,14 +137,14 @@ namespace SimpleWindow
 
         public Window GetWindow(WindowController controller)
         {
-            for (int i = 0; i < _tabs.Count; i++)
-                if (_tabs[i].Window.WindowController == controller)
-                    return _tabs[i].Window;
+            for (int i = 0; i < Tabs.Count; i++)
+                if (Tabs[i].Window.WindowController == controller)
+                    return Tabs[i].Window;
 
             return null;
         }
 
-        public void OrderBySiblingIndex() => _tabs.OrderBy(a => a.transform.GetSiblingIndex());
+        public void OrderBySiblingIndex() => Tabs.OrderBy(a => a.transform.GetSiblingIndex());
 
         public void OnPointerEnter(PointerEventData eventData)
         {
@@ -161,10 +160,10 @@ namespace SimpleWindow
         {
             string value = string.Empty;
 
-            for (int i = 0; i < _tabs.Count; i++)
+            for (int i = 0; i < Tabs.Count; i++)
             {
-                if (_tabs[i].Window != null)
-                    value += _tabs[i].Window.GetType().Name + " | ";
+                if (Tabs[i].Window != null)
+                    value += Tabs[i].Window.GetType().Name + " | ";
             }
             if(value.Length > 3)
             value = value.Substring(0, value.Length - 2);

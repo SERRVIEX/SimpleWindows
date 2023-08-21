@@ -4,6 +4,7 @@ namespace SimpleWindow
     using System.Collections.Generic;
 
     using UnityEngine;
+    using UnityEngine.UI;
 
     public sealed class WindowsManager : MonoBehaviour
     {
@@ -18,34 +19,20 @@ namespace SimpleWindow
         public static RectTransform Overlayer => Instance._overlayer;
         [SerializeField] private RectTransform _overlayer;
 
-        private static int _padding = 5;
-
         public static RectOffset Margin { get; private set; }
 
+        public static Camera Camera => Instance._camera;
         [SerializeField] private Camera _camera;
+
+        public static CanvasScaler CanvasScaler => Instance._canvasScaler;
+        [SerializeField] private CanvasScaler _canvasScaler;
+
+        public static float AspectRatio => CanvasScaler.referenceResolution.x / Screen.width;
+
         [SerializeField] private WindowController _windowPrefab;
         [SerializeField] private List<Window> _windows;
 
         private List<WindowController> _controllers = new List<WindowController>();
-        public static int WindowCount => Instance._controllers.Count;
-        public static int GetWindowCount()
-        {
-            return Instance._controllers.Count;
-        }
-
-        public static int GetStaticWindowCount()
-        {
-            return Instance.GetStaticWindowCountImpl();
-        }
-
-        private int GetStaticWindowCountImpl()
-        {
-            int count = 0;
-            for (int i = 0; i < _controllers.Count; i++)
-                if (!_controllers[i].IsFloating)
-                    count++;
-            return count;
-        }
 
         // Methods
 
@@ -53,11 +40,13 @@ namespace SimpleWindow
         {
             Instance = this;
 
+            int padding = 0;
+
             Margin = new RectOffset(
-                    left: -(int)RectTransform.rect.width / 2 + _padding,
-                    right: (int)RectTransform.rect.width / 2 - _padding,
-                    top: (int)RectTransform.rect.height / 2 - _padding - 40, // 30 MenuBar
-                    bottom: -(int)RectTransform.rect.height / 2 + _padding);
+                                    left: -(int)RectTransform.rect.width / 2 + padding,
+                                    right: (int)RectTransform.rect.width / 2 - padding,
+                                    top: (int)RectTransform.rect.height / 2 - padding - 40, // 40 MenuBar
+                                    bottom: -(int)RectTransform.rect.height / 2 + padding);
 
             name = GetType().ToString();
         }
@@ -171,6 +160,25 @@ namespace SimpleWindow
                     return true;
 
             return false;
+        }
+
+        public static int GetWindowCount()
+        {
+            return Instance._controllers.Count;
+        }
+
+        public static int GetStaticWindowCount()
+        {
+            return Instance.GetStaticWindowCountImpl();
+        }
+
+        private int GetStaticWindowCountImpl()
+        {
+            int count = 0;
+            for (int i = 0; i < _controllers.Count; i++)
+                if (!_controllers[i].IsFloating)
+                    count++;
+            return count;
         }
 
         public static void MarkDirty() { }

@@ -74,7 +74,7 @@ namespace SimpleWindow
 
         [field: SerializeField] public Header Header { get; private set; }
         [field: SerializeField] public GameObject Move { get;private set; }
-        [field: SerializeField] public GameObject BoundsControllers { get; private set; }
+        [field: SerializeField] public RectTransform BoundsControllers { get; private set; }
 
         [field: SerializeField] public WindowController Parent { get; private set; }
 
@@ -142,22 +142,25 @@ namespace SimpleWindow
             bool verify1 = Parent == null && !IsFloating;
 
             // When more windows are in underlayer.
-            bool verify2 = IsParentRoot() && !IsFloating && Parent.ChildCount == 2 && Parent[0] == this;
+            bool verify2 = IsParentRoot() && !IsFloating && Parent.ChildCount == 2 && Parent.Layout == LayoutType.Vertical && Parent[0] == this;
+            bool verify3 = IsParentRoot() && !IsFloating && Parent.ChildCount == 2 && Parent.Layout == LayoutType.Horizontal && Parent[1] == this;
 
             // When the window is floating.
-            bool verify3 = Parent == null && IsFloating;
+            bool verify4 = Parent == null && IsFloating;
 
             // When the windows is in a floater group.
-            bool verify4 = IsParentRoot() && IsFloating && Parent.ChildCount == 2 && Parent[0] == this;
+            bool verify5 = IsParentRoot() && IsFloating && Parent.ChildCount == 2 && Parent.Layout == LayoutType.Vertical && Parent[0] == this;
+            bool verify6 = IsParentRoot() && IsFloating && Parent.ChildCount == 2 && Parent.Layout == LayoutType.Horizontal && Parent[1] == this;
 
-            IsRoot = verify1 || verify2 || verify3 || verify4;
+            IsRoot = verify1 || verify2 || verify3 || verify4 || verify5 || verify6;
 
             if (ChildCount == 0)
             {
                 Move.SetActive(IsRoot && IsFloating);
-                BoundsControllers.SetActive(IsRoot);
                 if(FrontLayer != null)
-                FrontLayer.SetAsLastSibling();
+                    FrontLayer.SetAsLastSibling();
+                if(BoundsControllers != null)
+                BoundsControllers.gameObject.SetActive(IsRoot);
             }
 
             //if (Header != null)
@@ -260,8 +263,8 @@ namespace SimpleWindow
             controller.Header = Header;
             controller.Header.Window = controller;
 
-            for (int i = 0; i < controller.Header._tabs.Count; i++)
-                controller.Header._tabs[i].Window.WindowController = controller;
+            for (int i = 0; i < controller.Header.Tabs.Count; i++)
+                controller.Header.Tabs[i].Window.WindowController = controller;
 
             controller.Move = Move;
 
@@ -270,11 +273,12 @@ namespace SimpleWindow
 
             // Grab the front layer.
             controller.FrontLayer = FrontLayer;
+            controller.FrontLayer.SetParent(controller.transform, false);
 
             Content = null;
             Header = null;
             Move = null;
-            BoundsControllers = null;
+            //BoundsControllers = null;
             FrontLayer = null;
 
             return controller;
@@ -340,7 +344,7 @@ namespace SimpleWindow
         {
             if (Children.Contains(controller))
             {
-                if (controller.Header._tabs.Count > 0)
+                if (controller.Header.Tabs.Count > 0)
                     return;
 
                 WindowController origin;

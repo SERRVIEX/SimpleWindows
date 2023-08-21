@@ -96,7 +96,7 @@ namespace SimpleWindow
 
         public void OnDrag(PointerEventData eventData)
         {
-            _delta += eventData.delta;
+            _delta += eventData.delta * WindowsManager.AspectRatio;
 
             switch (_position)
             {
@@ -137,30 +137,15 @@ namespace SimpleWindow
             }
 
             Vector3 localPosition = _reference.RectTransform.localPosition;
-
-            if (Input.GetKey(KeyCode.LeftShift))
-            {
-                localPosition.x = Mathf.RoundToInt(localPosition.x / 25) * 25;
-                localPosition.y = Mathf.RoundToInt(localPosition.y / 25) * 25;
-
-                _reference.RectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, Mathf.RoundToInt(_reference.RectTransform.rect.width / 25) * 25);
-                _reference.RectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, Mathf.RoundToInt(_reference.RectTransform.rect.height / 25) * 25);
-            }
-            else if (Input.GetKey(KeyCode.LeftControl))
-            {
-                localPosition.x = Mathf.RoundToInt(localPosition.x / 10) * 10;
-                localPosition.y = Mathf.RoundToInt(localPosition.y / 10) * 10;
-
-                _reference.RectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, Mathf.RoundToInt(_reference.RectTransform.rect.width / 10) * 10);
-                _reference.RectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, Mathf.RoundToInt(_reference.RectTransform.rect.height / 10) * 10);
-            }
-
             localPosition.x = Mathf.Clamp(localPosition.x, WindowsManager.Margin.left + _reference.RectTransform.rect.width / 2f, WindowsManager.Margin.right - _reference.RectTransform.rect.width / 2f);
             localPosition.y = Mathf.Clamp(localPosition.y, WindowsManager.Margin.bottom + _reference.RectTransform.rect.height / 2f, WindowsManager.Margin.top - _reference.RectTransform.rect.height / 2f);
             localPosition.z = 0;
             _reference.RectTransform.localPosition = localPosition;
         }
 
-        public void OnEndDrag(PointerEventData eventData) => WindowsManager.MarkDirty();
+        public void OnEndDrag(PointerEventData eventData)
+        {
+            WindowsManager.MarkDirty();
+        }
     }
 }
