@@ -1,7 +1,7 @@
 
-# SimpleWindows (v0.0.1)
+# SimpleWindows
 
-![Version](https://img.shields.io/badge/Version-v1.0.0-brightgreen.svg)
+![Version](https://img.shields.io/badge/Version-v0.0.1-brightgreen.svg)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/SERRVIEX/SimpleWindows/blob/main/LICENSE) 
 [![Contact](https://img.shields.io/badge/LinkedIn-blue.svg?logo=LinkedIn)](https://www.linkedin.com/in/sergiu-ciornii-466395220/)
 
