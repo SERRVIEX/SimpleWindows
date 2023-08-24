@@ -1,4 +1,4 @@
-namespace SimpleWindow
+namespace SimpleWindow.Internal
 {
     using UnityEngine;
     using UnityEngine.UI;
@@ -6,7 +6,6 @@ namespace SimpleWindow
     using UnityEngine.EventSystems;
 
     using TMPro;
-    using static UnityEngine.RuleTile.TilingRuleOutput;
 
     [RequireComponent(typeof(Image))]
     [RequireComponent(typeof(CanvasGroup))]
@@ -33,6 +32,8 @@ namespace SimpleWindow
         /// </summary>
         [field: SerializeField] public Window Window { get; private set; }
 
+        [HideInInspector] public UnityEvent OnEndDragHandler = new UnityEvent();
+
         public bool Active
         {
             get => _active;
@@ -41,15 +42,13 @@ namespace SimpleWindow
                 _active = value;
                 if(_active)
                 {
-                    _image.color = new Color32(125, 125, 125, 255);
-                    _icon.color = new Color32(255, 255, 255, 255);
-                    _title.color = new Color32(25, 25, 25, 255);
+                    _image.color = new Color32(65, 65, 65, 255);
+                    _title.color = new Color32(239, 239, 239, 255);
                 }
                 else
                 {
-                    _image.color = new Color32(100, 100, 100, 255);
-                    _icon.color = new Color32(100, 100, 100, 255);
-                    _title.color = new Color32(25, 25, 25, 255);
+                    _image.color = new Color32(49, 49, 49, 255);
+                    _title.color = new Color32(176, 176, 176, 255);
                 }
 
                 Window.gameObject.SetActive(_active);
@@ -58,23 +57,27 @@ namespace SimpleWindow
 
         private bool _active;
 
-        [HideInInspector] public UnityEvent OnEndDragHandler = new UnityEvent();
-
         [SerializeField] private Image _image;
         [SerializeField] private CanvasGroup _canvasGroup;
         [SerializeField] private Image _icon;
         [SerializeField] private TextMeshProUGUI _title;
 
-        private Header _previousHeader;
+        private Header _headerTemp;
+        private int _tabCountTemp;
+
+        // Constructors
+
+        private TabView() { }
 
         // Methods
 
         private void Awake() => name = GetType().Name;
 
-        public void Link(Window controller)
+        public void Link(Window window)
         {
-            Window = controller;
+            Window = window;
             _title.text = Window.Title;
+            _icon.sprite = window.Icon;
         }
 
         public void OnPointerEnter(PointerEventData eventData)
@@ -85,15 +88,19 @@ namespace SimpleWindow
 
         public void OnBeginDrag(PointerEventData eventData)
         {
+            WindowsManager.SetBoundsControllersActive(false);
+
+            _tabCountTemp = Window.WindowController.Header.Tabs.Count;
+
             // Moving tab is not allowed when 1 static window left.
-            if (WindowsManager.GetStaticWindowCount() == 1 && !Window.WindowController.IsFloating && Window.WindowController.Header.Tabs.Count == 1)
+            if (WindowsManager.GetStaticWindowCount() == 1 && !Window.WindowController.IsFloating && _tabCountTemp == 1)
                 return;
 
             Dragging = this;
             _image.raycastTarget = false;
             _canvasGroup.alpha = 0.25f;
 
-            _previousHeader = Header;
+            _headerTemp = Header;
         }
 
         public void OnPointerClick(PointerEventData eventData)
@@ -104,7 +111,7 @@ namespace SimpleWindow
         public void OnDrag(PointerEventData eventData)
         {
             // Moving tab is not allowed when 1 static window left.
-            if (WindowsManager.GetStaticWindowCount() == 1 && !Window.WindowController.IsFloating && Window.WindowController.Header.Tabs.Count == 1)
+            if (WindowsManager.GetStaticWindowCount() == 1 && !Window.WindowController.IsFloating && _tabCountTemp == 1)
                 return;
 
             // If this tab is not in the headers.
@@ -135,8 +142,10 @@ namespace SimpleWindow
 
         public void OnEndDrag(PointerEventData eventData)
         {
+            WindowsManager.SetBoundsControllersActive(true);
+
             // Moving tab is not allowed when 1 static window left.
-            if (WindowsManager.GetStaticWindowCount() == 1 && !Window.WindowController.IsFloating && Window.WindowController.Header.Tabs.Count == 1)
+            if (WindowsManager.GetStaticWindowCount() == 1 && !Window.WindowController.IsFloating && _tabCountTemp == 1)
                 return;
 
             if (Header == null)
@@ -152,18 +161,18 @@ namespace SimpleWindow
                     {
                         Window.transform.SetParent(WindowsManager.RectTransform);
 
-                        if (Window.WindowController == null || _previousHeader.Tabs.Count > 0)
-                            Window.WindowController = WindowsManager.CreateWindow(this);
+                        if (Window.WindowController == null || _headerTemp.Tabs.Count > 0)
+                            Window.WindowController = WindowsManager.CreateWindowController(this);
 
                         if (Window.WindowController.Parent != null)
-                            Window.WindowController.Parent.Detach(Window.WindowController, Window);
+                            Window.WindowController.Parent.Detach(Window.WindowController);
 
                         WindowController.Selected.Attach(Window.WindowController, Window);
 
                         Window.WindowController.Header.AddTab(this);
                         Window.WindowController.Header.Select(this);
 
-                        Window.transform.SetParent(Header.Window.Content);
+                        Window.transform.SetParent(Header.Controller.Content);
                         Window.transform.localPosition = Vector3.zero;
                     }
                     else
@@ -176,13 +185,13 @@ namespace SimpleWindow
                         WindowController.Selected.ClosestBorder != Border.None &&
                         WindowController.Selected.Header.Tabs.Count >= 1)
                     {
-                        Window.WindowController = WindowsManager.CreateWindow(this);
+                        Window.WindowController = WindowsManager.CreateWindowController(this);
                         WindowController.Selected.Attach(Window.WindowController, Window);
 
                         //Window.WindowController.Header.AddTab(this);
                         Window.WindowController.Header.Select(this);
 
-                        Window.transform.SetParent(Header.Window.Content);
+                        Window.transform.SetParent(Header.Controller.Content);
                         Window.transform.localPosition = Vector3.zero;
                     }
                     else
@@ -195,13 +204,13 @@ namespace SimpleWindow
             {
                 WindowController controller = Window.WindowController;
                 if (controller.Parent != null)
-                    controller.Parent.Detach(controller, Window);
+                    controller.Parent.Detach(controller);
 
-                Window.WindowController = Header.Window;
-                Window.transform.SetParent(Header.Window.Content);
+                Window.WindowController = Header.Controller;
+                Window.transform.SetParent(Header.Controller.Content);
                 Header.Select(this);
 
-                if (controller != null && Window.WindowController != controller && _previousHeader.Tabs.Count == 0)
+                if (controller != null && Window.WindowController != controller && _headerTemp.Tabs.Count == 0)
                     Destroy(controller.gameObject);
             }
 
@@ -219,12 +228,12 @@ namespace SimpleWindow
 
             WindowController controller = Window.WindowController;
             if (controller.Parent != null)
-                controller.Parent.Detach(controller, Window);
+                controller.Parent.Detach(controller);
 
             // Create floater window.
-            WindowsManager.CreateWindow(this);
+            WindowsManager.CreateWindowController(this);
 
-            if(Window.WindowController != controller && _previousHeader.Tabs.Count == 0)
+            if(Window.WindowController != controller && _headerTemp.Tabs.Count == 0)
                 Destroy(controller.gameObject);
 
             Header.Select(this);

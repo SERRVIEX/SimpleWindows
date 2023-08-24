@@ -9,18 +9,16 @@ namespace SimpleWindow.Examples
         public WindowsManager Manager;
         public List<Window> Windows = new List<Window>();
 
-        public RectTransform Parent;
-
         // Methods
 
         public void AddHierarchy()
         {
-            WindowsManager.CreateWindowController<ExampleHierarchyWindow>();
+            WindowsManager.CreateWindow<ExampleHierarchyWindow>();
         }
 
         public void AddInspector()
         {
-            WindowsManager.CreateWindowController<ExampleInspectorWindow>();
+            WindowsManager.CreateWindow<ExampleInspectorWindow>();
         }
     }
 }

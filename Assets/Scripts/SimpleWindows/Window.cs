@@ -2,6 +2,8 @@ namespace SimpleWindow
 {
     using UnityEngine;
 
+    using SimpleWindow.Internal;
+
     public abstract class Window : MonoBehaviour
     {
         public WindowController WindowController;

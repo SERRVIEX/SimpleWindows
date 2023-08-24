@@ -1,20 +1,29 @@
-namespace SimpleWindow
+namespace SimpleWindow.Internal
 {
     using UnityEngine;
     using UnityEngine.EventSystems;
 
-    public sealed class Move : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler
+    public sealed class MoveAction : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler
     {
         [SerializeField] private WindowController _reference;
 
         private Vector3 _localPosition;
         private Vector2 _delta;
 
+        // Constructors
+
+        private MoveAction() { }
+
         // Methods
 
         private void Start()
         {
             ClampToViewport();
+        }
+
+        public void SetWindow(WindowController controller)
+        {
+            _reference = controller;
         }
 
         public void OnBeginDrag(PointerEventData eventData)

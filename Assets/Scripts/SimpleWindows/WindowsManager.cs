@@ -6,33 +6,53 @@ namespace SimpleWindow
     using UnityEngine;
     using UnityEngine.UI;
 
+    using SimpleWindow.Internal;
+
     public sealed class WindowsManager : MonoBehaviour
     {
         public static WindowsManager Instance { get; private set; }
 
+        /// <summary>
+        /// Aspect ratio factor between canvas and screen resolution.
+        /// </summary>
+        public static float AspectRatioFactor { get; private set; }
+
+        public static Camera Camera => Instance._camera;
+        [SerializeField] private Camera _camera;
+
         public static RectTransform RectTransform => Instance._rectTransform;
         [SerializeField] private RectTransform _rectTransform;
 
+        public static CanvasScaler CanvasScaler => Instance._canvasScaler;
+        [SerializeField] private CanvasScaler _canvasScaler;
+
         public static RectTransform Underlayer => Instance._underlayer;
-        [SerializeField] private RectTransform _underlayer;
+        [SerializeField, Space(10)] private RectTransform _underlayer;
 
         public static RectTransform Overlayer => Instance._overlayer;
         [SerializeField] private RectTransform _overlayer;
 
         public static RectOffset Margin { get; private set; }
+        [SerializeField, Space(10)] private RectOffset _padding;
 
-        public static Camera Camera => Instance._camera;
-        [SerializeField] private Camera _camera;
+        /// <summary>
+        /// Window template.
+        /// </summary>
+        [SerializeField, Space(10)] private WindowController _windowPrefab;
 
-        public static CanvasScaler CanvasScaler => Instance._canvasScaler;
-        [SerializeField] private CanvasScaler _canvasScaler;
-
-        public static float AspectRatio => CanvasScaler.referenceResolution.x / Screen.width;
-
-        [SerializeField] private WindowController _windowPrefab;
+        /// <summary>
+        /// All available windows that can be created.
+        /// </summary>
         [SerializeField] private List<Window> _windows;
 
+        /// <summary>
+        /// All active window controllers.
+        /// </summary>
         private List<WindowController> _controllers = new List<WindowController>();
+
+        // Constructors
+
+        private WindowsManager() { }
 
         // Methods
 
@@ -40,30 +60,39 @@ namespace SimpleWindow
         {
             Instance = this;
 
-            int padding = 0;
+            Margin = new RectOffset(left: -(int)RectTransform.rect.width / 2 + _padding.left,
+                                    right: (int)RectTransform.rect.width / 2 - _padding.right,
+                                    top: (int)RectTransform.rect.height / 2 - _padding.top,
+                                    bottom: -(int)RectTransform.rect.height / 2 + _padding.bottom);
 
-            Margin = new RectOffset(
-                                    left: -(int)RectTransform.rect.width / 2 + padding,
-                                    right: (int)RectTransform.rect.width / 2 - padding,
-                                    top: (int)RectTransform.rect.height / 2 - padding - 40, // 40 MenuBar
-                                    bottom: -(int)RectTransform.rect.height / 2 + padding);
-
-            name = GetType().ToString();
+            AspectRatioFactor = CanvasScaler.referenceResolution.x / Screen.width;
         }
 
-        private void OnValidate() => name = GetType().ToString();
+        private void OnValidate()
+        {
+            name = GetType().Name;
+
+            // Configure the underlayer.
+            _underlayer.SetAnchor(Anchor.Stretch);
+            _underlayer.SetPivot(Pivot.MiddleCenter);
+            _underlayer.SetOffset(_padding.left, _padding.right, _padding.top, _padding.bottom);
+
+            // Configure the overlayer.
+            _overlayer.SetAnchor(Anchor.Stretch);
+            _overlayer.SetPivot(Pivot.MiddleCenter);
+            _overlayer.SetOffset(0, 0, 0, 0);
+        }
 
         /// <summary>
-        /// Get mouse position in root rect transform.
+        /// Create a new window.
         /// </summary>
-        public static Vector3 GetMousePosition() => Input.mousePosition - new Vector3(RectTransform.rect.width / 2f, RectTransform.rect.height / 2f);
-
-        public static T CreateWindowController<T>() where T : Window
+        /// <typeparam name="T">Type of window.</typeparam>
+        public static T CreateWindow<T>() where T : Window
         {
-            return Instance.CreateWindowControllerImpl<T>();
+            return Instance.CreateWindowImpl<T>();
         }
 
-        private T CreateWindowControllerImpl<T>() where T : Window
+        private T CreateWindowImpl<T>() where T : Window
         {
             for (int i = 0; i < _windows.Count; i++)
             {
@@ -71,7 +100,7 @@ namespace SimpleWindow
                 if (item.GetType() == typeof(T))
                 {
                     bool isFloating = GetStaticWindowCount() > 0;
-                    WindowController controller = CreateWindow(Vector3.zero, isFloating);
+                    WindowController controller = CreateWindowController(Vector3.zero, isFloating);
                     Window instance = Instantiate(item, controller.Content);
                     controller.Link(instance);
 
@@ -83,12 +112,12 @@ namespace SimpleWindow
         }
 
         /// <summary>
-        /// Create new window for dragging item.
+        /// Create new window controller for dragging item.
         /// </summary>
-        public static WindowController CreateWindow(TabView item)
+        public static WindowController CreateWindowController(TabView item)
         {
             bool isFloating = GetStaticWindowCount() > 0;
-            WindowController controller = CreateWindow(item.transform.localPosition, isFloating);
+            WindowController controller = CreateWindowController(item.transform.localPosition, isFloating);
             item.Window.transform.SetParent(controller.Content);
             item.Window.transform.localPosition = Vector3.zero;
             controller.Link(item);
@@ -99,14 +128,14 @@ namespace SimpleWindow
         }
 
         /// <summary>
-        /// Create new window at specified position.
+        /// Create new window controller at specified position.
         /// </summary>
-        private static WindowController CreateWindow(Vector3 localPosition, bool isFloating)
+        private static WindowController CreateWindowController(Vector3 localPosition, bool isFloating)
         {
-            return Instance.CreateWindowImpl(localPosition, isFloating);
+            return Instance.CreateWindowControllerImpl(localPosition, isFloating);
         }
 
-        private WindowController CreateWindowImpl(Vector3 localPosition, bool isFloating)
+        private WindowController CreateWindowControllerImpl(Vector3 localPosition, bool isFloating)
         {
             WindowController controller = Instantiate(_windowPrefab, isFloating ? Overlayer : Underlayer);
             controller.RectTransform.SetPivot(Pivot.MiddleCenter);
@@ -132,25 +161,42 @@ namespace SimpleWindow
             return controller;
         }
 
-        public static void DestroyController(WindowController window)
+        public static void Destroy(WindowController controller)
         {
-            Instance._controllers.Remove(window);
-            Destroy(window.gameObject);
+            Instance.DestroyImpl(controller);
+        }
+
+        private void DestroyImpl(WindowController controller)
+        {
+            if (controller.Parent != null)
+                controller.Parent.Detach(controller);
+
+            RemoveRecursive(controller);
+
+            Instance._controllers.Remove(controller);
+            DestroyImmediate(controller.gameObject);
 
             MarkDirty();
         }
-       
 
-        /// <summary>
-        /// Remove specified instance type.
-        /// </summary>
-        public static void Destroy<T>() where T : Window
+        private void RemoveRecursive(WindowController controller)
         {
-            for (int i = 0; i < Instance._controllers.Count; i++)
-                if (Instance._controllers[i].Header.FindControllerOfType<T>(out TabView tabView))
-                    Instance._controllers[i].Header.DestroyTab(tabView);
+            for (int i = 0; i < controller.Children.Count; i++)
+            {
+                _controllers.Remove(controller.Children[i]);
+                RemoveRecursive(controller.Children[i]);
+            }
+        }
 
-            MarkDirty();
+        public static void Destroy(TabView tabView)
+        {
+            if(tabView.Header.Tabs.Count == 0)
+                Destroy(tabView.Header.Controller);
+            else
+            {
+                tabView.Header.RemoveTab(tabView);
+                Destroy(tabView.Window.gameObject);
+            }
         }
 
         public static bool IsPointerInsideTheWindows()
@@ -160,6 +206,17 @@ namespace SimpleWindow
                     return true;
 
             return false;
+        }
+
+        public static void SetBoundsControllersActive(bool value)
+        {
+            Instance.SetBoundsControllersActiveImpl(value);
+        }
+
+        private void SetBoundsControllersActiveImpl(bool value)
+        {
+            for (int i = 0; i < _controllers.Count; i++)
+                _controllers[i].SetBoundsControllersActive(value);
         }
 
         public static int GetWindowCount()

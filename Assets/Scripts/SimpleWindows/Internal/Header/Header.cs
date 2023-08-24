@@ -1,4 +1,4 @@
-namespace SimpleWindow
+namespace SimpleWindow.Internal
 {
     using System.Linq;
     using System.Collections.Generic;
@@ -6,8 +6,6 @@ namespace SimpleWindow
     using UnityEngine;
     using UnityEngine.UI;
     using UnityEngine.EventSystems;
-    using static UnityEditor.Progress;
-    using TMPro.EditorUtilities;
 
     [RequireComponent(typeof(Image))]
     [RequireComponent(typeof(RectTransform))]
@@ -22,13 +20,17 @@ namespace SimpleWindow
         /// <summary>
         /// Reference to the window.
         /// </summary>
-        [field: SerializeField] public WindowController Window { get; set; }
+        [field: SerializeField] public WindowController Controller { get; set; }
 
         [field: SerializeField] public RectTransform RectTransform { get; private set; }
         [field: SerializeField] public ScrollRect ScrollRect { get; private set; }
         [SerializeField] private TabView _tabPrefab;
 
         public List<TabView> Tabs = new List<TabView>();
+
+        // Constructors
+
+        private Header() { }
 
         // Methods
 
@@ -65,15 +67,15 @@ namespace SimpleWindow
 
                 item.OnEndDragHandler.RemoveAllListeners();
 
-                if (Window.Parent != null && Window.Parent.ChildCount == 0)
+                if (Controller.Parent != null && Controller.Parent.Children.Count == 0)
                 {
                     if (Tabs.Count == 0)
-                        WindowsManager.DestroyController(Window);
+                        WindowsManager.Destroy(Controller);
                 }
                 else
                 {
                     if (Tabs.Count == 0)
-                        WindowsManager.DestroyController(Window);
+                        WindowsManager.Destroy(Controller);
                 }
             });
         }
@@ -84,7 +86,7 @@ namespace SimpleWindow
             tabView.Link(controller);
             tabView.Header = this;
 
-            controller.transform.SetParent(Window.Content);
+            controller.transform.SetParent(Controller.Content);
             Tabs.Add(tabView);
 
             Select(Tabs[Tabs.Count - 1]);
@@ -117,7 +119,7 @@ namespace SimpleWindow
             Destroy(item.gameObject);
 
             if (Tabs.Count == 0)
-                WindowsManager.DestroyController(Window);
+                WindowsManager.Destroy(Controller);
         }
 
         public bool FindControllerOfType<T>(out TabView item) where T : Window

@@ -1,4 +1,4 @@
-namespace SimpleWindow
+namespace SimpleWindow.Internal
 {
     using UnityEngine;
     using UnityEngine.UI;
@@ -6,9 +6,9 @@ namespace SimpleWindow
 
     [RequireComponent(typeof(RectTransform))]
     [RequireComponent(typeof(Image))]
-    public sealed class BoundController : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, IBeginDragHandler, IDragHandler, IEndDragHandler
+    internal sealed class BoundController : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, IBeginDragHandler, IDragHandler, IEndDragHandler
     {
-        public enum Position
+        internal enum Position
         {
             Left,
             Right,
@@ -25,61 +25,21 @@ namespace SimpleWindow
         private Vector2 _anchoredPosition;
         private Vector2 _delta;
 
+        // Constructors
+
+        private BoundController() { }
+
         // Methods
 
-        private void OnValidate()
+        public void SetWindow(WindowController controller)
         {
-            name = _position.ToString();
-
-            if (_rectTransform == null)
-                _rectTransform = GetComponent<RectTransform>();
-
-            if (_image == null)
-                _image = GetComponent<Image>();
-
-            switch (_position)
-            {
-                case Position.Left:
-                    _rectTransform.SetAnchor(Anchor.StretchLeft);
-                    _rectTransform.SetPivot(Pivot.MiddleLeft);
-                    _rectTransform.SetWidth(10);
-                    _rectTransform.anchoredPosition = new Vector2(0, 0);
-                    _rectTransform.SetTop(10);
-                    _rectTransform.SetBottom(10);
-                    break;
-
-                case Position.Right:
-                    _rectTransform.SetAnchor(Anchor.StretchRight);
-                    _rectTransform.SetPivot(Pivot.MiddleRight);
-                    _rectTransform.SetWidth(10);
-                    _rectTransform.anchoredPosition = new Vector2(0, 0);
-                    _rectTransform.SetTop(10);
-                    _rectTransform.SetBottom(10);
-                    break;
-
-                case Position.Top:
-                    _rectTransform.SetAnchor(Anchor.StretchTop);
-                    _rectTransform.SetPivot(Pivot.TopCenter);
-                    _rectTransform.SetHeight(10);
-                    _rectTransform.anchoredPosition = new Vector2(0, 0);
-                    _rectTransform.SetLeft(10);
-                    _rectTransform.SetRight(10);
-                    break;
-
-                case Position.Bottom:
-                    _rectTransform.SetAnchor(Anchor.StretchBottom);
-                    _rectTransform.SetPivot(Pivot.BottomCenter);
-                    _rectTransform.SetHeight(10);
-                    _rectTransform.anchoredPosition = new Vector2(0, 0);
-                    _rectTransform.SetLeft(10);
-                    _rectTransform.SetRight(10);
-                    break;
-            }
+            _reference = controller;
         }
 
         public void OnPointerEnter(PointerEventData eventData)
         {
-            _image.color = new Color32(255, 255, 255, 64);
+            if(TabView.Dragging == null)
+                _image.color = new Color32(255, 255, 255, 64);
         }
 
         public void OnPointerExit(PointerEventData eventData)
@@ -96,7 +56,7 @@ namespace SimpleWindow
 
         public void OnDrag(PointerEventData eventData)
         {
-            _delta += eventData.delta * WindowsManager.AspectRatio;
+            _delta += eventData.delta * WindowsManager.AspectRatioFactor;
 
             switch (_position)
             {
@@ -146,6 +106,56 @@ namespace SimpleWindow
         public void OnEndDrag(PointerEventData eventData)
         {
             WindowsManager.MarkDirty();
+        }
+
+        private void OnValidate()
+        {
+            name = _position.ToString();
+
+            if (_rectTransform == null)
+                _rectTransform = GetComponent<RectTransform>();
+
+            if (_image == null)
+                _image = GetComponent<Image>();
+
+            switch (_position)
+            {
+                case Position.Left:
+                    _rectTransform.SetAnchor(Anchor.StretchLeft);
+                    _rectTransform.SetPivot(Pivot.MiddleLeft);
+                    _rectTransform.SetWidth(10);
+                    _rectTransform.anchoredPosition = new Vector2(0, 0);
+                    _rectTransform.SetTop(10);
+                    _rectTransform.SetBottom(10);
+                    break;
+
+                case Position.Right:
+                    _rectTransform.SetAnchor(Anchor.StretchRight);
+                    _rectTransform.SetPivot(Pivot.MiddleRight);
+                    _rectTransform.SetWidth(10);
+                    _rectTransform.anchoredPosition = new Vector2(0, 0);
+                    _rectTransform.SetTop(10);
+                    _rectTransform.SetBottom(10);
+                    break;
+
+                case Position.Top:
+                    _rectTransform.SetAnchor(Anchor.StretchTop);
+                    _rectTransform.SetPivot(Pivot.TopCenter);
+                    _rectTransform.SetHeight(10);
+                    _rectTransform.anchoredPosition = new Vector2(0, 0);
+                    _rectTransform.SetLeft(10);
+                    _rectTransform.SetRight(10);
+                    break;
+
+                case Position.Bottom:
+                    _rectTransform.SetAnchor(Anchor.StretchBottom);
+                    _rectTransform.SetPivot(Pivot.BottomCenter);
+                    _rectTransform.SetHeight(10);
+                    _rectTransform.anchoredPosition = new Vector2(0, 0);
+                    _rectTransform.SetLeft(10);
+                    _rectTransform.SetRight(10);
+                    break;
+            }
         }
     }
 }

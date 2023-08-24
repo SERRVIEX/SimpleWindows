@@ -1,10 +1,12 @@
-namespace SimpleWindow
+namespace SimpleWindow.Internal
 {
     using System.Collections.Generic;
 
     using UnityEngine;
     using UnityEngine.UI;
     using UnityEngine.EventSystems;
+
+    using SimpleWindow.Internal;
 
     [ExecuteAlways]
     [RequireComponent(typeof(RectTransform))]
@@ -63,9 +65,8 @@ namespace SimpleWindow
         /// When the window is splitted then this one is clone and converted to a child, 
         /// and another child is came from arguments. 
         /// </summary>
-       [SerializeField] protected List<WindowController> Children = new List<WindowController>();
+        [SerializeField] public List<WindowController> Children = new List<WindowController>();
         public WindowController this[int index] => Children[index];
-        public int ChildCount => Children.Count;
 
         /// <summary>
         /// On which axis will align the child windows.
@@ -73,8 +74,8 @@ namespace SimpleWindow
         protected LayoutType Layout;
 
         [field: SerializeField] public Header Header { get; private set; }
-        [field: SerializeField] public GameObject Move { get;private set; }
-        [field: SerializeField] public RectTransform BoundsControllers { get; private set; }
+        [field: SerializeField] public Actions Actions { get; private set; }
+        [field: SerializeField] internal BoundsController BoundsController { get; private set; }
 
         [field: SerializeField] public WindowController Parent { get; private set; }
 
@@ -98,24 +99,28 @@ namespace SimpleWindow
         /// </summary>
         private bool _isDragging;
 
+        // Constructors
+
+        private WindowController() { }
+
         // Methods
 
-        private bool IsParentRoot()
+        public bool IsRootTest()
         {
-            return IsParentRoot(this, 0);
+            return IsRootTest(this, 0);
         }
 
-        private bool IsParentRoot(WindowController window, int deep)
+        private bool IsRootTest(WindowController window, int deep)
         {
             // If parent wasn't found. 
             if (window.Parent == null)
             {
                 // If parent of verifying window was a root group (1 recursion) then return true.
-                return deep == 1;
+                return deep == 0;
             }
 
             deep++;
-            return IsParentRoot(window.Parent, deep);
+            return IsRootTest(window.Parent, deep);
         }
 
         private void Update()
@@ -138,33 +143,20 @@ namespace SimpleWindow
 
         public void Process()
         {
-            // When the window in single in underlayer.
-            bool verify1 = Parent == null && !IsFloating;
+            Actions.SetFloatActiveActions(IsFloating);
 
-            // When more windows are in underlayer.
-            bool verify2 = IsParentRoot() && !IsFloating && Parent.ChildCount == 2 && Parent.Layout == LayoutType.Vertical && Parent[0] == this;
-            bool verify3 = IsParentRoot() && !IsFloating && Parent.ChildCount == 2 && Parent.Layout == LayoutType.Horizontal && Parent[1] == this;
-
-            // When the window is floating.
-            bool verify4 = Parent == null && IsFloating;
-
-            // When the windows is in a floater group.
-            bool verify5 = IsParentRoot() && IsFloating && Parent.ChildCount == 2 && Parent.Layout == LayoutType.Vertical && Parent[0] == this;
-            bool verify6 = IsParentRoot() && IsFloating && Parent.ChildCount == 2 && Parent.Layout == LayoutType.Horizontal && Parent[1] == this;
-
-            IsRoot = verify1 || verify2 || verify3 || verify4 || verify5 || verify6;
-
-            if (ChildCount == 0)
+            if (IsRootTest())
             {
-                Move.SetActive(IsRoot && IsFloating);
-                if(FrontLayer != null)
-                    FrontLayer.SetAsLastSibling();
-                if(BoundsControllers != null)
-                BoundsControllers.gameObject.SetActive(IsRoot);
+                Actions.gameObject.SetActive(IsFloating);
             }
+            else
+                Actions.gameObject.SetActive(false);
 
-            //if (Header != null)
-            //    name = Header.GetName();
+            if (FrontLayer != null)
+                FrontLayer.SetAsLastSibling();
+
+            if (BoundsController != null)
+                BoundsController.transform.SetAsLastSibling();
         }
 
         public void Link(Window item)
@@ -261,15 +253,21 @@ namespace SimpleWindow
 
             // Grab the header to the new window.
             controller.Header = Header;
-            controller.Header.Window = controller;
+            controller.Header.Controller = controller;
 
             for (int i = 0; i < controller.Header.Tabs.Count; i++)
                 controller.Header.Tabs[i].Window.WindowController = controller;
 
-            controller.Move = Move;
+            controller.Actions = Actions;
+            controller.Actions.RectTransform.SetParent(controller.transform);
+            controller.Actions.SetWindow(controller);
+            controller.Actions.gameObject.SetActive(false);
 
             // Grab the header to the new window.
-            controller.BoundsControllers = BoundsControllers;
+            controller.BoundsController = BoundsController;
+            controller.BoundsController.RectTransform.SetParent(controller.transform);
+            controller.BoundsController.SetWindow(controller);
+            controller.BoundsController.gameObject.SetActive(false);
 
             // Grab the front layer.
             controller.FrontLayer = FrontLayer;
@@ -277,11 +275,36 @@ namespace SimpleWindow
 
             Content = null;
             Header = null;
-            Move = null;
-            //BoundsControllers = null;
+
+            CreateActions(controller.Actions);
+            CreateBoundsController(controller.BoundsController);
+
             FrontLayer = null;
 
             return controller;
+        }
+
+        private void CreateActions(Actions original)
+        {
+            Actions = Instantiate(original, transform);
+            Actions.GetComponent<LayoutElement>().ignoreLayout = true;
+            Actions.RectTransform.SetAnchor(Anchor.TopRight);
+            Actions.RectTransform.SetPivot(Pivot.TopRight);
+            Actions.RectTransform.anchoredPosition = Vector3.zero;
+            Actions.SetWindow(this);
+
+            Actions.gameObject.SetActive(Parent == null);
+        }
+
+        private void CreateBoundsController(BoundsController original)
+        {
+            BoundsController = Instantiate(original, transform);
+            BoundsController.RectTransform.SetAnchor(Anchor.Stretch);
+            BoundsController.RectTransform.SetPivot(Pivot.MiddleCenter);
+            BoundsController.RectTransform.SetOffset(0, 0, 0, 0);
+            BoundsController.SetWindow(this);
+
+            BoundsController.gameObject.SetActive(Parent == null);
         }
 
         /// <summary>
@@ -340,7 +363,7 @@ namespace SimpleWindow
         /// Detach a window from this group.
         /// </summary>
         /// <param name="controller">Child window.</param>
-        public void Detach(WindowController controller, Window window)
+        public void Detach(WindowController controller)
         {
             if (Children.Contains(controller))
             {
@@ -377,6 +400,12 @@ namespace SimpleWindow
             // layout from this group and grab the content from the child to the root.
             if (controller.Children.Count == 0)
             {
+                if (Actions != null)
+                    DestroyImmediate(Actions.gameObject);
+
+                if (BoundsController == null)
+                    DestroyImmediate(BoundsController.gameObject);
+
                 if (GetComponent<LayoutGroup>() != null)
                     DestroyImmediate(GetComponent<LayoutGroup>());
 
@@ -385,9 +414,16 @@ namespace SimpleWindow
                 Content.SetOffset(0, 0, 0, 0);
 
                 Header = controller.Header;
-                Header.Window = this;
-                Move = controller.Move;
-                BoundsControllers = controller.BoundsControllers;
+                Header.Controller = this;
+
+                Actions = controller.Actions;
+                Actions.SetWindow(this);
+                Actions.transform.SetParent(Header.transform);
+                Actions.RectTransform.anchoredPosition = new Vector2(0, 0);
+
+                BoundsController = controller.BoundsController;
+                BoundsController.SetWindow(this);
+                BoundsController.transform.SetParent(transform);
 
                 FrontLayer = controller.FrontLayer;
                 FrontLayer.SetParent(transform);
@@ -396,15 +432,9 @@ namespace SimpleWindow
                 Window window = Header.GetWindow(controller);
                 window.WindowController = this;
             }
-            // If the new root has childern (it's a group) then we simply copy its children to this one.
+            // If the new root has children (it's a group) then we simply copy its children to this one.
             else
             {
-                WindowController rootWindow = controller.Children[0];
-
-                FrontLayer = rootWindow.FrontLayer;
-                FrontLayer.SetParent(transform);
-                FrontLayer.SetOffset(0, 0, 0, 0);
-
                 for (int i = 0; i < controller.Children.Count; i++)
                 {
                     WindowController child = controller.Children[i];
@@ -426,6 +456,12 @@ namespace SimpleWindow
             }
 
             Destroy(controller.gameObject);
+        }
+
+        public void SetBoundsControllersActive(bool value)
+        {
+            if (BoundsController != null)
+                BoundsController.CanvasGroup.interactable = value;
         }
 
         /// <summary>
