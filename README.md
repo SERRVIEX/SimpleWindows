@@ -12,7 +12,7 @@
 ## Description
 A multi window layout manager for Unity applications. 
 
-![](https://github.com/SERRVIEX/SimpleContextualMenu/blob/main/github_assets/asset_0.png)
+![](https://github.com/SERRVIEX/SimpleWindows/blob/main/github_assets/asset_0.png)
 
 ## How to use?
 There in the assets you can find Examples folder with a scene where you can see how to configure it.
