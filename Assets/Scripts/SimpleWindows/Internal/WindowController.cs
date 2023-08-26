@@ -6,8 +6,6 @@ namespace SimpleWindow.Internal
     using UnityEngine.UI;
     using UnityEngine.EventSystems;
 
-    using SimpleWindow.Internal;
-
     [ExecuteAlways]
     [RequireComponent(typeof(RectTransform))]
     [RequireComponent(typeof(Image))]
@@ -44,13 +42,6 @@ namespace SimpleWindow.Internal
         /// </summary>
         public Vector3 MinSize => new Vector3(300, 150);
 
-        public bool IsRoot
-        {
-            get => _isRoot;
-            set => _isRoot = value;
-        }
-        private bool _isRoot;
-
         public bool IsFloating
         {
             get => _isFloating;
@@ -71,7 +62,7 @@ namespace SimpleWindow.Internal
         /// <summary>
         /// On which axis will align the child windows.
         /// </summary>
-        protected LayoutType Layout;
+        public LayoutType Layout { get; protected set; }
 
         [field: SerializeField] public Header Header { get; private set; }
         [field: SerializeField] public Actions Actions { get; private set; }
@@ -87,7 +78,7 @@ namespace SimpleWindow.Internal
         /// <summary>
         /// Set the middle position between the childs (%).
         /// </summary>
-        public float SplitLinePosition;
+        public float CenterNormalizedPosition;
 
         /// <summary>
         /// Determine if the border can be dragged.
@@ -104,24 +95,6 @@ namespace SimpleWindow.Internal
         private WindowController() { }
 
         // Methods
-
-        public bool IsRootTest()
-        {
-            return IsRootTest(this, 0);
-        }
-
-        private bool IsRootTest(WindowController window, int deep)
-        {
-            // If parent wasn't found. 
-            if (window.Parent == null)
-            {
-                // If parent of verifying window was a root group (1 recursion) then return true.
-                return deep == 0;
-            }
-
-            deep++;
-            return IsRootTest(window.Parent, deep);
-        }
 
         private void Update()
         {
@@ -145,10 +118,8 @@ namespace SimpleWindow.Internal
         {
             Actions.SetFloatActiveActions(IsFloating);
 
-            if (IsRootTest())
-            {
+            if (IsRoot())
                 Actions.gameObject.SetActive(IsFloating);
-            }
             else
                 Actions.gameObject.SetActive(false);
 
@@ -159,16 +130,34 @@ namespace SimpleWindow.Internal
                 BoundsController.transform.SetAsLastSibling();
         }
 
+        public bool IsRoot()
+        {
+            return IsRootTest(this, 0);
+        }
+
+        private bool IsRootTest(WindowController window, int deep)
+        {
+            // If parent wasn't found. 
+            if (window.Parent == null)
+            {
+                // If parent of verifying window was a root group (1 recursion) then return true.
+                return deep == 0;
+            }
+
+            deep++;
+            return IsRootTest(window.Parent, deep);
+        }
+
         public void Link(Window item)
         {
-            item.WindowController = this;
-            Header.AddController(item);
+            item.Controller = this;
+            Header.AddWindow(item);
             Process();
         }
 
         public void Link(TabView item)
         {
-            item.Window.WindowController = this;
+            item.Window.Controller = this;
             Header.AddTab(item);
             Process();
         }
@@ -183,7 +172,7 @@ namespace SimpleWindow.Internal
             controller.transform.SetParent(transform);
             controller.transform.localScale = Vector3.one;
             controller.Parent = this;
-            window.WindowController = controller;
+            window.Controller = controller;
 
             // Clone this window as a child and the original convert into a group.
             WindowController current = MakeAsChild();
@@ -230,6 +219,44 @@ namespace SimpleWindow.Internal
         }
 
         /// <summary>
+        /// Attach new window to this one.
+        /// That will create a group with these current and new window.
+        /// </summary>
+        public void Attach(WindowController controller, Window window, LayoutType layout)
+        {
+            // Make new window as a child of this.
+            controller.transform.SetParent(transform);
+            controller.transform.localScale = Vector3.one;
+            controller.Parent = this;
+            window.Controller = controller;
+
+            // Clone this window as a child and the original convert into a group.
+            WindowController current = MakeAsChild();
+
+            if(layout == LayoutType.Horizontal)
+            {
+                Children.Add(current);
+                Children.Add(controller);
+                ProcessHorizontal();
+            }
+            else
+            {
+                Children.Add(current);
+                Children.Add(controller);
+                ProcessVertical();
+            }
+
+            // Order the children.
+            for (int i = 0; i < Children.Count; i++)
+                Children[i].transform.SetSiblingIndex(i);
+
+            current.Process();
+            controller.Process();
+
+            controller.FrontLayer.SetAsLastSibling();
+        }
+
+        /// <summary>
         /// Make a child clone of the current window.
         /// </summary>
         private WindowController MakeAsChild()
@@ -256,7 +283,7 @@ namespace SimpleWindow.Internal
             controller.Header.Controller = controller;
 
             for (int i = 0; i < controller.Header.Tabs.Count; i++)
-                controller.Header.Tabs[i].Window.WindowController = controller;
+                controller.Header.Tabs[i].Window.Controller = controller;
 
             controller.Actions = Actions;
             controller.Actions.RectTransform.SetParent(controller.transform);
@@ -321,12 +348,12 @@ namespace SimpleWindow.Internal
             horizontalLayoutGroup.childScaleWidth = true;
             horizontalLayoutGroup.childScaleHeight = true;
 
-            SplitLinePosition = 50;
+            CenterNormalizedPosition = 50;
 
             for (int i = 0; i < Children.Count; i++)
             {
                 WindowController child = Children[i];
-                child.LayoutElement.preferredWidth = RectTransform.rect.width * SplitLinePosition / 100;
+                child.LayoutElement.preferredWidth = RectTransform.rect.width * CenterNormalizedPosition / 100;
                 child.LayoutElement.preferredHeight = 0;
             }
 
@@ -347,13 +374,13 @@ namespace SimpleWindow.Internal
             verticalLayoutGroup.childScaleWidth = true;
             verticalLayoutGroup.childScaleHeight = true;
 
-            SplitLinePosition = 50;
+            CenterNormalizedPosition = 50;
 
             for (int i = 0; i < Children.Count; i++)
             {
                 WindowController child = Children[i];
                 child.LayoutElement.preferredWidth = 0;
-                child.LayoutElement.preferredHeight = RectTransform.rect.height * SplitLinePosition / 100;
+                child.LayoutElement.preferredHeight = RectTransform.rect.height * CenterNormalizedPosition / 100;
             }
 
             Layout = LayoutType.Vertical;
@@ -430,7 +457,7 @@ namespace SimpleWindow.Internal
                 FrontLayer.SetOffset(0, 0, 0, 0);
 
                 Window window = Header.GetWindow(controller);
-                window.WindowController = this;
+                window.Controller = this;
             }
             // If the new root has children (it's a group) then we simply copy its children to this one.
             else
@@ -461,7 +488,10 @@ namespace SimpleWindow.Internal
         public void SetBoundsControllersActive(bool value)
         {
             if (BoundsController != null)
+            {
                 BoundsController.CanvasGroup.interactable = value;
+                BoundsController.CanvasGroup.blocksRaycasts = value;
+            }
         }
 
         /// <summary>
@@ -489,7 +519,7 @@ namespace SimpleWindow.Internal
                 DestroyImmediate(oldLayoutGroup);
 
             // Copy the line position to keep the children sizes correctly.
-            SplitLinePosition = window.SplitLinePosition;
+            CenterNormalizedPosition = window.CenterNormalizedPosition;
 
             // Copy the new layout.
             LayoutGroup newLayoutGroup = window.GetComponent<LayoutGroup>();
@@ -498,36 +528,46 @@ namespace SimpleWindow.Internal
             else 
                 ProcessVertical();
 
-            UpdateChildrenLayouts(this);
+            UpdateLayouts(this);
         }
 
-        private void UpdateChildrenLayouts(WindowController window)
+        private void UpdateLayouts(WindowController controller)
         {
             float[] size = new float[2];
 
-            if (window.Layout == LayoutType.Horizontal)
+            if (controller.Layout == LayoutType.Horizontal)
             {
-                size[0] = window.RectTransform.rect.width * window.SplitLinePosition / 100;
-                size[1] = window.RectTransform.rect.width - size[0];
+                size[0] = controller.RectTransform.rect.width * controller.CenterNormalizedPosition / 100;
+                size[1] = controller.RectTransform.rect.width - size[0];
 
-                for (int i = 0; i < window.Children.Count; i++)
+                for (int i = 0; i < controller.Children.Count; i++)
                 {
-                    WindowController child = window.Children[i];
+                    WindowController child = controller.Children[i];
                     child.LayoutElement.preferredWidth = size[i];
                     child.LayoutElement.preferredHeight = 0;
                 }
             }
             else
             {
-                size[0] = window.RectTransform.rect.height * window.SplitLinePosition / 100;
-                size[1] = window.RectTransform.rect.height - size[0];
+                size[0] = controller.RectTransform.rect.height * controller.CenterNormalizedPosition / 100;
+                size[1] = controller.RectTransform.rect.height - size[0];
 
-                for (int i = 0; i < window.Children.Count; i++)
+                for (int i = 0; i < controller.Children.Count; i++)
                 {
-                    WindowController child = window.Children[i];
+                    WindowController child = controller.Children[i];
                     child.LayoutElement.preferredWidth = 0;
                     child.LayoutElement.preferredHeight = size[i];
                 }
+            }
+        }
+
+        public void OnPointerDown(PointerEventData eventData)
+        {
+            if (IsPointerOnBorder && _canBeDragged)
+            {
+                _isDragging = true;
+                StartPointerPosition = Input.mousePosition;
+                StartSplitLinePosition = Parent.CenterNormalizedPosition;
             }
         }
 
@@ -542,8 +582,8 @@ namespace SimpleWindow.Internal
             float start = max * StartSplitLinePosition / 100;
             float value = Mathf.Clamp(start + diff, 0, max);
             float percent = value / max * 100;
-            Parent.SplitLinePosition = Mathf.Clamp(percent, 10f, 90f);
-            UpdateChildrenLayouts(Parent);
+            Parent.CenterNormalizedPosition = Mathf.Clamp(percent, 10f, 90f);
+            UpdateLayouts(Parent);
         }
 
         public void OnEndDrag(PointerEventData eventData)
@@ -660,14 +700,43 @@ namespace SimpleWindow.Internal
             Selected = null;
         }
 
-        public void OnPointerDown(PointerEventData eventData)
+        public void SetCenterNormalizedPosition(float value)
         {
-            if (IsPointerOnBorder && _canBeDragged)
+            CenterNormalizedPosition = value;
+            if(Children.Count > 0)
+                UpdateLayouts(this);
+        }
+
+        public Vector2 GetNormalizedSize()
+        {
+            Vector2 size = new Vector2
             {
-                _isDragging = true;
-                StartPointerPosition = Input.mousePosition;
-                StartSplitLinePosition = Parent.SplitLinePosition;
-            }
+                x = RectTransform.rect.width / WindowsManager.RectTransform.rect.width,
+                y = RectTransform.rect.height / WindowsManager.RectTransform.rect.height
+            };
+
+            return size;
+        }
+
+        public void SetNormalizedSize(Vector2 value)
+        {
+            RectTransform.SetSize(new Vector2(value.x * WindowsManager.RectTransform.rect.width, value.y * WindowsManager.RectTransform.rect.height));
+        }
+
+        public Vector2 GetNormalizedPosition()
+        {
+            Vector2 position = new Vector2
+            {
+                x = RectTransform.localPosition.x / WindowsManager.RectTransform.rect.width,
+                y = RectTransform.localPosition.y / WindowsManager.RectTransform.rect.height
+            };
+
+            return position;
+        }
+
+        public void SetNormalizedPosition(Vector2 position)
+        {
+            RectTransform.localPosition = new Vector3(position.x * WindowsManager.RectTransform.rect.width, position.y * WindowsManager.RectTransform.rect.height, 0);
         }
     }
 }

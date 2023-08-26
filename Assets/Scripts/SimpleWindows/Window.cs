@@ -6,9 +6,9 @@ namespace SimpleWindow
 
     public abstract class Window : MonoBehaviour
     {
-        public WindowController WindowController;
-        public abstract string Title { get; protected set; }
-        public abstract Sprite Icon { get; protected set; }
+        [HideInInspector] public WindowController Controller;
+        [field: SerializeField] public string Title { get; private set; }
+        [field: SerializeField] public Sprite Icon { get; private set; }
 
         // Methods
 

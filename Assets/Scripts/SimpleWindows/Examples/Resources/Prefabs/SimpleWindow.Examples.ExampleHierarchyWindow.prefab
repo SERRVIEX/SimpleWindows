@@ -91,7 +91,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 102d1557e46ff474e8f002aaca9c6eb7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  WindowController: {fileID: 0}
+  Controller: {fileID: 0}
+  <Title>k__BackingField: Hierarchy
+  <Icon>k__BackingField: {fileID: 21300000, guid: 4f32ef4896650d14aba6233c2dc71524, type: 3}
 --- !u!114 &-1493560619539930678
 MonoBehaviour:
   m_ObjectHideFlags: 0

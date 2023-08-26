@@ -40,9 +40,9 @@ namespace SimpleWindow.Internal
         {
             if (item.Header != null && item.Header != this)
                 item.Header.RemoveTab(item);
-            
+
             item.Header = this;
-            if(!Tabs.Contains(item))
+            if (!Tabs.Contains(item))
                 Tabs.Add(item);
 
             OrderBySiblingIndex();
@@ -62,7 +62,7 @@ namespace SimpleWindow.Internal
 
             item.OnEndDragHandler.AddListener(() =>
             {
-                if (wasActive)
+                if (wasActive && previousRoot != item.Header)
                     previousRoot.Select(0);
 
                 item.OnEndDragHandler.RemoveAllListeners();
@@ -80,13 +80,13 @@ namespace SimpleWindow.Internal
             });
         }
 
-        public void AddController(Window controller)
+        public void AddWindow(Window window)
         {
             TabView tabView = Instantiate(_tabPrefab, ScrollRect.content);
-            tabView.Link(controller);
+            tabView.Link(window);
             tabView.Header = this;
 
-            controller.transform.SetParent(Controller.Content);
+            window.transform.SetParent(Controller.Content);
             Tabs.Add(tabView);
 
             Select(Tabs[Tabs.Count - 1]);
@@ -98,7 +98,7 @@ namespace SimpleWindow.Internal
             Select(index);
         }
 
-        private void Select(int index)
+        public void Select(int index)
         {
             if (Tabs.Count == 0)
                 return;
@@ -140,7 +140,7 @@ namespace SimpleWindow.Internal
         public Window GetWindow(WindowController controller)
         {
             for (int i = 0; i < Tabs.Count; i++)
-                if (Tabs[i].Window.WindowController == controller)
+                if (Tabs[i].Window.Controller == controller)
                     return Tabs[i].Window;
 
             return null;

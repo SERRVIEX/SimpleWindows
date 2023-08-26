@@ -4,16 +4,11 @@ namespace SimpleWindow.Examples
 
     public class ExampleInspectorWindow : Window
     {
-        public override string Title { get; protected set; }
-        public override Sprite Icon { get; protected set; }
-
         // Methods
 
         protected override void Awake()
         {
             base.Awake();
-
-            Title = "Inspector";
         }
     }
 }

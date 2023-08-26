@@ -7,6 +7,9 @@ namespace SimpleWindow
     using UnityEngine.UI;
 
     using SimpleWindow.Internal;
+    using System.IO;
+    using System.Runtime.Serialization;
+    using Unity.VisualScripting.FullSerializer;
 
     public sealed class WindowsManager : MonoBehaviour
     {
@@ -111,6 +114,30 @@ namespace SimpleWindow
             throw new Exception($"Window '{typeof(T)}' wasn't found in the manager.");
         }
 
+        public static Window CreateWindow(Type type)
+        {
+            return Instance.CreateWindowImpl(type);
+        }
+
+        private Window CreateWindowImpl(Type type)
+        {
+            for (int i = 0; i < _windows.Count; i++)
+            {
+                Window item = _windows[i];
+                if (item.GetType() == type)
+                {
+                    bool isFloating = GetStaticWindowCount() > 0;
+                    WindowController controller = CreateWindowController(Vector3.zero, isFloating);
+                    Window instance = Instantiate(item, controller.Content);
+                    controller.Link(instance);
+
+                    return instance;
+                }
+            }
+
+            throw new Exception($"Window '{type}' wasn't found in the manager.");
+        }
+
         /// <summary>
         /// Create new window controller for dragging item.
         /// </summary>
@@ -141,7 +168,6 @@ namespace SimpleWindow
             controller.RectTransform.SetPivot(Pivot.MiddleCenter);
             controller.RectTransform.SetAnchor(Anchor.MiddleCenter);
 
-            controller.IsRoot = true;
             controller.IsFloating = isFloating;
 
             if (isFloating)
@@ -174,7 +200,9 @@ namespace SimpleWindow
             RemoveRecursive(controller);
 
             Instance._controllers.Remove(controller);
-            DestroyImmediate(controller.gameObject);
+
+            if(controller.gameObject != null)
+                DestroyImmediate(controller.gameObject);
 
             MarkDirty();
         }
@@ -239,5 +267,81 @@ namespace SimpleWindow
         }
 
         public static void MarkDirty() { }
+
+        private Window GetWindow(Type type)
+        {
+            for (int i = 0; i < _windows.Count; i++)
+                if (_windows[i].GetType() == type)
+                    return _windows[i];
+            return null;
+        }
+
+        private void Serialize()
+        {
+            // Serialize to XML
+            DataContractSerializer serializer = new DataContractSerializer(typeof(LayoutData));
+            using (FileStream fs = new FileStream($"{Application.persistentDataPath}/layout.xml", FileMode.Create))
+            {
+                serializer.WriteObject(fs, this);
+            }
+        }
+
+        private void Deserialize()
+        {
+            // Deserialize from XML
+            DataContractSerializer serializer = new DataContractSerializer(typeof(LayoutData));
+            using (FileStream fs = new FileStream($"{Application.persistentDataPath}/layout.xml", FileMode.Open))
+            {
+                LayoutData layoutData = (LayoutData)serializer.ReadObject(fs);
+                
+                for (int i = 0; i < layoutData.Windows.Count; i++)
+                {
+                    WindowData windowData = layoutData.Windows[i];
+                    LoadWindow(windowData, null);
+                }
+            }
+        }
+
+        private void LoadWindow(WindowData windowData, Window parent)
+        {
+            if (windowData.Children == null || windowData.Children.Count == 0)
+            {
+                // Create the root window from the firt tabs.
+                Window rootWindow = CreateWindow(windowData.Tabs[0].Type);
+                if (parent != null)
+                    parent.Controller.Attach(rootWindow.Controller, rootWindow, windowData.LayoutType);
+                if (windowData.Tabs[0].Active)
+                    rootWindow.Controller.Header.Select(0);
+
+                // Add the left tabs to the root window.
+                for (int i = 1; i < windowData.Tabs.Count; i++)
+                {
+                    TabData tabData = windowData.Tabs[i];
+                    Window window = CreateWindow(tabData.Type);
+                    rootWindow.Controller.Header.AddWindow(window);
+
+                    if (tabData.Active)
+                        rootWindow.Controller.Header.Select(i);
+                }
+
+                // If the window is under layer then we have to set the center normalized position.
+                if (!rootWindow.Controller.IsFloating)
+                    rootWindow.Controller.SetCenterNormalizedPosition(windowData.CenterNormalizedPosition);
+
+                // If the window is floating when we have to set the size and the position.
+                else if (rootWindow.Controller.IsFloating)
+                {
+                    rootWindow.Controller.SetNormalizedSize(windowData.NormalizedSize);
+                    rootWindow.Controller.SetNormalizedPosition(windowData.NormalizedPosition);
+                }
+            }
+            else if (windowData.Children.Count == 2)
+            {
+                for (int i = 0; i < windowData.Children.Count; i++)
+                {
+                    LoadWindow(windowData.Children[i], parent);
+                }
+            }
+        }
     }
 }

@@ -226,7 +226,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ea7b7c9823f7bbe48a2c4edb233604a4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  WindowController: {fileID: 0}
+  Controller: {fileID: 0}
+  <Title>k__BackingField: Inspector
+  <Icon>k__BackingField: {fileID: 21300000, guid: 9f499aa9f70a9d943b55192fb12b1f0a, type: 3}
 --- !u!114 &1509115678887409601
 MonoBehaviour:
   m_ObjectHideFlags: 0

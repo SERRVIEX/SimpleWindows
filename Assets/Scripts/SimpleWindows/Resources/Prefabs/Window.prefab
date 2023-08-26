@@ -1333,7 +1333,7 @@ MonoBehaviour:
   <LayoutElement>k__BackingField: {fileID: 3687655611021031360}
   <Content>k__BackingField: {fileID: 3687655609003303459}
   <FrontLayer>k__BackingField: {fileID: 9035384512277574076}
-  SplitLinePosition: 0
+  CenterNormalizedPosition: 0
 --- !u!1 &4243704633310873767
 GameObject:
   m_ObjectHideFlags: 0

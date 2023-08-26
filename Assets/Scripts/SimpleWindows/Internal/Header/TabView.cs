@@ -90,10 +90,10 @@ namespace SimpleWindow.Internal
         {
             WindowsManager.SetBoundsControllersActive(false);
 
-            _tabCountTemp = Window.WindowController.Header.Tabs.Count;
+            _tabCountTemp = Window.Controller.Header.Tabs.Count;
 
             // Moving tab is not allowed when 1 static window left.
-            if (WindowsManager.GetStaticWindowCount() == 1 && !Window.WindowController.IsFloating && _tabCountTemp == 1)
+            if (WindowsManager.GetStaticWindowCount() == 1 && !Window.Controller.IsFloating && _tabCountTemp == 1)
                 return;
 
             Dragging = this;
@@ -111,7 +111,7 @@ namespace SimpleWindow.Internal
         public void OnDrag(PointerEventData eventData)
         {
             // Moving tab is not allowed when 1 static window left.
-            if (WindowsManager.GetStaticWindowCount() == 1 && !Window.WindowController.IsFloating && _tabCountTemp == 1)
+            if (WindowsManager.GetStaticWindowCount() == 1 && !Window.Controller.IsFloating && _tabCountTemp == 1)
                 return;
 
             // If this tab is not in the headers.
@@ -145,7 +145,7 @@ namespace SimpleWindow.Internal
             WindowsManager.SetBoundsControllersActive(true);
 
             // Moving tab is not allowed when 1 static window left.
-            if (WindowsManager.GetStaticWindowCount() == 1 && !Window.WindowController.IsFloating && _tabCountTemp == 1)
+            if (WindowsManager.GetStaticWindowCount() == 1 && !Window.Controller.IsFloating && _tabCountTemp == 1)
                 return;
 
             if (Header == null)
@@ -154,23 +154,23 @@ namespace SimpleWindow.Internal
                 // If selected window is not the same as the tab controller window.
                 // If the pointer is close to one of the window borders
                 // then split it into two windows from old and new one.
-                if (WindowController.Selected != null && WindowController.Selected != Window.WindowController && WindowController.Selected.ClosestBorder != Border.None)
+                if (WindowController.Selected != null && WindowController.Selected != Window.Controller && WindowController.Selected.ClosestBorder != Border.None)
                 {
                     // Don't allow to attach to the child of the same parent (problems).
-                    if (WindowController.Selected.Parent == null || WindowController.Selected.Parent != null && WindowController.Selected.Parent != Window.WindowController.Parent)
+                    if (WindowController.Selected.Parent == null || WindowController.Selected.Parent != null && WindowController.Selected.Parent != Window.Controller.Parent)
                     {
                         Window.transform.SetParent(WindowsManager.RectTransform);
 
-                        if (Window.WindowController == null || _headerTemp.Tabs.Count > 0)
-                            Window.WindowController = WindowsManager.CreateWindowController(this);
+                        if (Window.Controller == null || _headerTemp.Tabs.Count > 0)
+                            Window.Controller = WindowsManager.CreateWindowController(this);
 
-                        if (Window.WindowController.Parent != null)
-                            Window.WindowController.Parent.Detach(Window.WindowController);
+                        if (Window.Controller.Parent != null)
+                            Window.Controller.Parent.Detach(Window.Controller);
 
-                        WindowController.Selected.Attach(Window.WindowController, Window);
+                        WindowController.Selected.Attach(Window.Controller, Window);
 
-                        Window.WindowController.Header.AddTab(this);
-                        Window.WindowController.Header.Select(this);
+                        Window.Controller.Header.AddTab(this);
+                        Window.Controller.Header.Select(this);
 
                         Window.transform.SetParent(Header.Controller.Content);
                         Window.transform.localPosition = Vector3.zero;
@@ -181,15 +181,14 @@ namespace SimpleWindow.Internal
                 else
                 {
                     if (WindowController.Selected != null &&
-                        WindowController.Selected == Window.WindowController &&
+                        WindowController.Selected == Window.Controller &&
                         WindowController.Selected.ClosestBorder != Border.None &&
                         WindowController.Selected.Header.Tabs.Count >= 1)
                     {
-                        Window.WindowController = WindowsManager.CreateWindowController(this);
-                        WindowController.Selected.Attach(Window.WindowController, Window);
+                        Window.Controller = WindowsManager.CreateWindowController(this);
+                        WindowController.Selected.Attach(Window.Controller, Window);
 
-                        //Window.WindowController.Header.AddTab(this);
-                        Window.WindowController.Header.Select(this);
+                        Window.Controller.Header.Select(this);
 
                         Window.transform.SetParent(Header.Controller.Content);
                         Window.transform.localPosition = Vector3.zero;
@@ -202,15 +201,16 @@ namespace SimpleWindow.Internal
             }
             else
             {
-                WindowController controller = Window.WindowController;
+                WindowController controller = Window.Controller;
                 if (controller.Parent != null)
                     controller.Parent.Detach(controller);
 
-                Window.WindowController = Header.Controller;
+                Window.Controller = Header.Controller;
                 Window.transform.SetParent(Header.Controller.Content);
+
                 Header.Select(this);
 
-                if (controller != null && Window.WindowController != controller && _headerTemp.Tabs.Count == 0)
+                if (controller != null && Window.Controller != controller && _headerTemp.Tabs.Count == 0)
                     Destroy(controller.gameObject);
             }
 
@@ -226,14 +226,14 @@ namespace SimpleWindow.Internal
             // Change the parent of the controller to avoid destroying it in detaching process.
             Window.transform.SetParent(WindowsManager.RectTransform);
 
-            WindowController controller = Window.WindowController;
+            WindowController controller = Window.Controller;
             if (controller.Parent != null)
                 controller.Parent.Detach(controller);
 
             // Create floater window.
             WindowsManager.CreateWindowController(this);
 
-            if(Window.WindowController != controller && _headerTemp.Tabs.Count == 0)
+            if(Window.Controller != controller && _headerTemp.Tabs.Count == 0)
                 Destroy(controller.gameObject);
 
             Header.Select(this);
