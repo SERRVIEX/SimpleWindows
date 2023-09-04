@@ -93,7 +93,7 @@ namespace SimpleWindow.Internal
             _tabCountTemp = Window.Controller.Header.Tabs.Count;
 
             // Moving tab is not allowed when 1 static window left.
-            if (WindowsManager.GetStaticWindowCount() == 1 && !Window.Controller.IsFloating && _tabCountTemp == 1)
+            if (WindowsManager.GetUnderlayerWindowCount() == 1 && !Window.Controller.IsFloating && _tabCountTemp == 1)
                 return;
 
             Dragging = this;
@@ -111,7 +111,7 @@ namespace SimpleWindow.Internal
         public void OnDrag(PointerEventData eventData)
         {
             // Moving tab is not allowed when 1 static window left.
-            if (WindowsManager.GetStaticWindowCount() == 1 && !Window.Controller.IsFloating && _tabCountTemp == 1)
+            if (WindowsManager.GetUnderlayerWindowCount() == 1 && !Window.Controller.IsFloating && _tabCountTemp == 1)
                 return;
 
             // If this tab is not in the headers.
@@ -145,7 +145,7 @@ namespace SimpleWindow.Internal
             WindowsManager.SetBoundsControllersActive(true);
 
             // Moving tab is not allowed when 1 static window left.
-            if (WindowsManager.GetStaticWindowCount() == 1 && !Window.Controller.IsFloating && _tabCountTemp == 1)
+            if (WindowsManager.GetUnderlayerWindowCount() == 1 && !Window.Controller.IsFloating && _tabCountTemp == 1)
                 return;
 
             if (Header == null)
@@ -219,6 +219,8 @@ namespace SimpleWindow.Internal
             _canvasGroup.alpha = 1;
 
             OnEndDragHandler?.Invoke();
+
+            WindowsManager.MarkDirty();
         }
 
         private void CreateFloatWindow()

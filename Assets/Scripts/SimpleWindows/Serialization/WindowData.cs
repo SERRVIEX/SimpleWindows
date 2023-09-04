@@ -1,29 +1,27 @@
-namespace SimpleWindow.Internal
+namespace SimpleWindow.Serialization
 {
     using System;
     using System.Collections.Generic;
-    using System.Runtime.Serialization;
-
-    using UnityEngine;
 
     using SimpleWindow.Internal;
-    using UnityEngine.VFX;
-    using System.IO;
 
-    [DataContract]
+    [Serializable]
     public class WindowData
     {
-        [DataMember] public bool IsFloating { get;private set; }
-        [DataMember] public List<TabData> Tabs { get; private set; }
+        public bool IsFloating { get;private set; }
+        public List<TabData> Tabs { get; private set; }
 
-        [DataMember] public Vector3 NormalizedSize { get; private set; }
-        [DataMember] public Vector2 NormalizedPosition { get; private set; }
+        public float NormalizedSizeX { get; private set; }
+        public float NormalizedSizeY { get; private set; }
 
-        [DataMember] public LayoutType LayoutType { get; private set; }
-        [DataMember] public float CenterNormalizedPosition { get; private set; }
+        public float NormalizedPositionX { get; private set; }
+        public float NormalizedPositionY { get; private set; }
 
-        [DataMember] public WindowData Parent { get; private set; }
-        [DataMember] public List<WindowData> Children { get; private set; }
+        public LayoutType LayoutType { get; private set; }
+        public float CenterNormalizedPosition { get; private set; }
+
+        public WindowData Parent { get; private set; }
+        public List<WindowData> Children { get; private set; }
 
         // Constructors
 
@@ -38,8 +36,13 @@ namespace SimpleWindow.Internal
                 // save the position and the size of this window.
                 if (controller.IsRoot() && IsFloating)
                 {
-                    NormalizedSize = controller.GetNormalizedSize();
-                    NormalizedPosition = controller.GetNormalizedPosition();
+                    var normalizedSize = controller.GetNormalizedSize();
+                    NormalizedSizeX = normalizedSize.x;
+                    NormalizedSizeY = normalizedSize.y;
+
+                    var normalizedPosition = controller.GetNormalizedPosition();
+                    NormalizedPositionX = normalizedPosition.x;
+                    NormalizedPositionY = normalizedPosition.y;
                 }
 
                 // Get the tabs that are linked to the window.
@@ -54,8 +57,13 @@ namespace SimpleWindow.Internal
                 // save the position and the size of this window.
                 if (controller.IsRoot() && IsFloating)
                 {
-                    NormalizedPosition = controller.GetNormalizedPosition();
-                    NormalizedSize = controller.GetNormalizedSize();
+                    var normalizedSize = controller.GetNormalizedSize();
+                    NormalizedSizeX = normalizedSize.x;
+                    NormalizedSizeY = normalizedSize.y;
+
+                    var normalizedPosition = controller.GetNormalizedPosition();
+                    NormalizedPositionX = normalizedPosition.x;
+                    NormalizedPositionY = normalizedPosition.y;
                 }
 
                 LayoutType = controller.Layout;
@@ -73,42 +81,6 @@ namespace SimpleWindow.Internal
                     child.Parent = this;
                     Children.Add(child);
                 }
-            }
-        }
-    }
-
-    [DataContract]
-    public class TabData
-    {
-        [DataMember] private string _typeName;
-        [DataMember] public bool Active { get; private set; }
-
-        public Type Type
-        {
-            get => Type.GetType(_typeName);
-            private set => _typeName = value.FullName;
-        }
-
-        // Constructors
-
-        public TabData(TabView tab)
-        {
-            Type = tab.Window.GetType();
-        }
-    }
-
-    [DataContract]
-    public class LayoutData
-    {
-        [DataMember] public List<WindowData> Windows { get; private set; }
-
-        // Constructors
-
-        public LayoutData(List<WindowController> windows)
-        {
-            for (int i = 0; i < windows.Count; i++)
-            {
-                Windows.Add(new WindowData(windows[i]));
             }
         }
     }

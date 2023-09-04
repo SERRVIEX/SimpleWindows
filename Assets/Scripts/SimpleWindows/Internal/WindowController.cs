@@ -5,6 +5,7 @@ namespace SimpleWindow.Internal
     using UnityEngine;
     using UnityEngine.UI;
     using UnityEngine.EventSystems;
+    using System.Linq;
 
     [ExecuteAlways]
     [RequireComponent(typeof(RectTransform))]
@@ -127,25 +128,25 @@ namespace SimpleWindow.Internal
                 FrontLayer.SetAsLastSibling();
 
             if (BoundsController != null)
+            {
                 BoundsController.transform.SetAsLastSibling();
+                BoundsController.gameObject.SetActive(Parent == null);
+            }
         }
 
-        public bool IsRoot()
+        public bool IsRoot() => IsRoot(this, 0);
+        
+        private bool IsRoot(WindowController window, int deep)
         {
-            return IsRootTest(this, 0);
-        }
-
-        private bool IsRootTest(WindowController window, int deep)
-        {
-            // If parent wasn't found. 
+            // If the parent wasn't found. 
             if (window.Parent == null)
             {
-                // If parent of verifying window was a root group (1 recursion) then return true.
+                // If the parent of verifying window was a root group (1 recursion) then return true.
                 return deep == 0;
             }
 
             deep++;
-            return IsRootTest(window.Parent, deep);
+            return IsRoot(window.Parent, deep);
         }
 
         public void Link(Window item)
@@ -183,67 +184,29 @@ namespace SimpleWindow.Internal
                 case Border.Left:
                     Children.Add(controller);
                     Children.Add(current);
-                    ProcessHorizontal();
+                    CreateHorizontalGroupLayout();
                     break;
 
                 // Set new window to the right of this window.
                 case Border.Right:
                     Children.Add(current);
                     Children.Add(controller);
-                    ProcessHorizontal();
+                    CreateHorizontalGroupLayout();
                     break;
 
                 // Set new window to the top of this window.
                 case Border.Top:
                     Children.Add(controller);
                     Children.Add(current);
-                    ProcessVertical();
+                    CreateVerticaGroupLayout();
                     break;
 
                 // Set new window to the bottom of this window.
                 case Border.Bottom:
                     Children.Add(current);
                     Children.Add(controller);
-                    ProcessVertical();
+                    CreateVerticaGroupLayout();
                     break;
-            }
-
-            // Order the children.
-            for (int i = 0; i < Children.Count; i++)
-                Children[i].transform.SetSiblingIndex(i);
-
-            current.Process();
-            controller.Process();
-
-            controller.FrontLayer.SetAsLastSibling();
-        }
-
-        /// <summary>
-        /// Attach new window to this one.
-        /// That will create a group with these current and new window.
-        /// </summary>
-        public void Attach(WindowController controller, Window window, LayoutType layout)
-        {
-            // Make new window as a child of this.
-            controller.transform.SetParent(transform);
-            controller.transform.localScale = Vector3.one;
-            controller.Parent = this;
-            window.Controller = controller;
-
-            // Clone this window as a child and the original convert into a group.
-            WindowController current = MakeAsChild();
-
-            if(layout == LayoutType.Horizontal)
-            {
-                Children.Add(current);
-                Children.Add(controller);
-                ProcessHorizontal();
-            }
-            else
-            {
-                Children.Add(current);
-                Children.Add(controller);
-                ProcessVertical();
             }
 
             // Order the children.
@@ -281,12 +244,13 @@ namespace SimpleWindow.Internal
             // Grab the header to the new window.
             controller.Header = Header;
             controller.Header.Controller = controller;
+            controller.Header.transform.SetParent(controller.Content);
 
             for (int i = 0; i < controller.Header.Tabs.Count; i++)
                 controller.Header.Tabs[i].Window.Controller = controller;
 
             controller.Actions = Actions;
-            controller.Actions.RectTransform.SetParent(controller.transform);
+            controller.Actions.RectTransform.SetParent(Header.transform);
             controller.Actions.SetWindow(controller);
             controller.Actions.gameObject.SetActive(false);
 
@@ -309,6 +273,21 @@ namespace SimpleWindow.Internal
             FrontLayer = null;
 
             return controller;
+        }
+
+        /// <summary>
+        /// Attach children when the layout is loading.
+        /// </summary>
+        public void AttachChildren(List<WindowController> children)
+        {
+            Children.AddRange(children);
+            for (int i = 0; i < children.Count; i++)
+            {
+                children[i].Parent = this;
+                children[i].Process();
+            }
+
+            CreateActions(children[0].Actions);
         }
 
         private void CreateActions(Actions original)
@@ -334,11 +313,19 @@ namespace SimpleWindow.Internal
             BoundsController.gameObject.SetActive(Parent == null);
         }
 
+        public void CreateGroupLayout(LayoutType type)
+        {
+            if (type == LayoutType.Horizontal)
+                CreateHorizontalGroupLayout();
+            else
+                CreateVerticaGroupLayout();
+        }
+
         /// <summary>
-        /// Add a horizontal layout to group to show the childs correct.
+        /// Add a horizontal layout to the group to show the childs correct.
         /// Call this function when the new window is near to left or right border.
         /// </summary>
-        protected void ProcessHorizontal()
+        protected void CreateHorizontalGroupLayout()
         {
             HorizontalLayoutGroup horizontalLayoutGroup = gameObject.AddComponent<HorizontalLayoutGroup>();
             horizontalLayoutGroup.childForceExpandWidth = true;
@@ -361,10 +348,10 @@ namespace SimpleWindow.Internal
         }
 
         /// <summary>
-        /// Add a vertical layout to group to show the childs correct.
+        /// Add a vertical layout to the group to show the childs correct.
         /// Call this function when the new window is near to top or bottom border.
         /// </summary>
-        protected void ProcessVertical()
+        protected void CreateVerticaGroupLayout()
         {
             VerticalLayoutGroup verticalLayoutGroup = gameObject.AddComponent<VerticalLayoutGroup>();
             verticalLayoutGroup.childForceExpandWidth = true;
@@ -442,6 +429,7 @@ namespace SimpleWindow.Internal
 
                 Header = controller.Header;
                 Header.Controller = this;
+                Header.transform.SetParent(Content);
 
                 Actions = controller.Actions;
                 Actions.SetWindow(this);
@@ -524,9 +512,9 @@ namespace SimpleWindow.Internal
             // Copy the new layout.
             LayoutGroup newLayoutGroup = window.GetComponent<LayoutGroup>();
             if (newLayoutGroup is HorizontalLayoutGroup)
-                ProcessHorizontal();
+                CreateHorizontalGroupLayout();
             else 
-                ProcessVertical();
+                CreateVerticaGroupLayout();
 
             UpdateLayouts(this);
         }
@@ -711,8 +699,8 @@ namespace SimpleWindow.Internal
         {
             Vector2 size = new Vector2
             {
-                x = RectTransform.rect.width / WindowsManager.RectTransform.rect.width,
-                y = RectTransform.rect.height / WindowsManager.RectTransform.rect.height
+                x = (float)RectTransform.rect.width / WindowsManager.RectTransform.rect.width,
+                y = (float)RectTransform.rect.height / WindowsManager.RectTransform.rect.height
             };
 
             return size;

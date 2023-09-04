@@ -1,15 +1,16 @@
 namespace SimpleWindow
 {
     using System;
+    using System.IO;
+    using System.Linq;
     using System.Collections.Generic;
+    using System.Runtime.Serialization.Formatters.Binary;
 
     using UnityEngine;
     using UnityEngine.UI;
 
     using SimpleWindow.Internal;
-    using System.IO;
-    using System.Runtime.Serialization;
-    using Unity.VisualScripting.FullSerializer;
+    using SimpleWindow.Serialization;
 
     public sealed class WindowsManager : MonoBehaviour
     {
@@ -53,6 +54,25 @@ namespace SimpleWindow
         /// </summary>
         private List<WindowController> _controllers = new List<WindowController>();
 
+        private LayoutData _currentLayout;
+        private List<LayoutData> _layouts = new List<LayoutData>();
+
+        public static string Path
+        {
+            get
+            {
+                if (string.IsNullOrEmpty(_path))
+                    _path = $"{Application.persistentDataPath}/Windows";
+
+                return _path;
+            }
+        }
+
+        public static string _path;
+
+        private bool _markedDirty;
+        private static bool _isLoading;
+
         // Constructors
 
         private WindowsManager() { }
@@ -69,27 +89,20 @@ namespace SimpleWindow
                                     bottom: -(int)RectTransform.rect.height / 2 + _padding.bottom);
 
             AspectRatioFactor = CanvasScaler.referenceResolution.x / Screen.width;
+
+            Debug.Log($"Windows Path: {Path}");
+            Load();
         }
 
-        private void OnValidate()
+        private void Update()
         {
-            name = GetType().Name;
-
-            // Configure the underlayer.
-            _underlayer.SetAnchor(Anchor.Stretch);
-            _underlayer.SetPivot(Pivot.MiddleCenter);
-            _underlayer.SetOffset(_padding.left, _padding.right, _padding.top, _padding.bottom);
-
-            // Configure the overlayer.
-            _overlayer.SetAnchor(Anchor.Stretch);
-            _overlayer.SetPivot(Pivot.MiddleCenter);
-            _overlayer.SetOffset(0, 0, 0, 0);
+            if(_markedDirty)
+                Save();
         }
 
         /// <summary>
-        /// Create a new window.
+        /// Create a window with the specified type.
         /// </summary>
-        /// <typeparam name="T">Type of window.</typeparam>
         public static T CreateWindow<T>() where T : Window
         {
             return Instance.CreateWindowImpl<T>();
@@ -102,10 +115,12 @@ namespace SimpleWindow
                 Window item = _windows[i];
                 if (item.GetType() == typeof(T))
                 {
-                    bool isFloating = GetStaticWindowCount() > 0;
+                    bool isFloating = GetUnderlayerWindowCount() > 0;
                     WindowController controller = CreateWindowController(Vector3.zero, isFloating);
                     Window instance = Instantiate(item, controller.Content);
                     controller.Link(instance);
+
+                    MarkDirty();
 
                     return (T)instance;
                 }
@@ -114,6 +129,9 @@ namespace SimpleWindow
             throw new Exception($"Window '{typeof(T)}' wasn't found in the manager.");
         }
 
+        /// <summary>
+        /// Create a window with the specified type.
+        /// </summary>
         public static Window CreateWindow(Type type)
         {
             return Instance.CreateWindowImpl(type);
@@ -126,8 +144,32 @@ namespace SimpleWindow
                 Window item = _windows[i];
                 if (item.GetType() == type)
                 {
-                    bool isFloating = GetStaticWindowCount() > 0;
+                    bool isFloating = GetUnderlayerWindowCount() > 0;
                     WindowController controller = CreateWindowController(Vector3.zero, isFloating);
+                    Window instance = Instantiate(item, controller.Content);
+                    controller.Link(instance);
+
+                    MarkDirty();
+
+                    return instance;
+                }
+            }
+
+            throw new Exception($"Window '{type}' wasn't found in the manager.");
+        }
+
+        private static Window CreateWindow(Type type, WindowController controller)
+        {
+            return Instance.CreateWindowImpl(type, controller);
+        }
+
+        private Window CreateWindowImpl(Type type, WindowController controller)
+        {
+            for (int i = 0; i < _windows.Count; i++)
+            {
+                Window item = _windows[i];
+                if (item.GetType() == type)
+                {
                     Window instance = Instantiate(item, controller.Content);
                     controller.Link(instance);
 
@@ -143,7 +185,7 @@ namespace SimpleWindow
         /// </summary>
         public static WindowController CreateWindowController(TabView item)
         {
-            bool isFloating = GetStaticWindowCount() > 0;
+            bool isFloating = GetUnderlayerWindowCount() > 0;
             WindowController controller = CreateWindowController(item.transform.localPosition, isFloating);
             item.Window.transform.SetParent(controller.Content);
             item.Window.transform.localPosition = Vector3.zero;
@@ -154,9 +196,6 @@ namespace SimpleWindow
             return controller;
         }
 
-        /// <summary>
-        /// Create new window controller at specified position.
-        /// </summary>
         private static WindowController CreateWindowController(Vector3 localPosition, bool isFloating)
         {
             return Instance.CreateWindowControllerImpl(localPosition, isFloating);
@@ -182,11 +221,12 @@ namespace SimpleWindow
 
             _controllers.Add(controller);
 
-            MarkDirty();
-
             return controller;
         }
 
+        /// <summary>
+        /// Destroy a window controller.
+        /// </summary>
         public static void Destroy(WindowController controller)
         {
             Instance.DestroyImpl(controller);
@@ -201,7 +241,7 @@ namespace SimpleWindow
 
             Instance._controllers.Remove(controller);
 
-            if(controller.gameObject != null)
+            if (controller != null)
                 DestroyImmediate(controller.gameObject);
 
             MarkDirty();
@@ -216,9 +256,12 @@ namespace SimpleWindow
             }
         }
 
+        /// <summary>
+        /// Destroy a window controller by tab view.
+        /// </summary>
         public static void Destroy(TabView tabView)
         {
-            if(tabView.Header.Tabs.Count == 0)
+            if (tabView.Header.Tabs.Count == 0)
                 Destroy(tabView.Header.Controller);
             else
             {
@@ -252,7 +295,7 @@ namespace SimpleWindow
             return Instance._controllers.Count;
         }
 
-        public static int GetStaticWindowCount()
+        public static int GetUnderlayerWindowCount()
         {
             return Instance.GetStaticWindowCountImpl();
         }
@@ -266,50 +309,212 @@ namespace SimpleWindow
             return count;
         }
 
-        public static void MarkDirty() { }
-
-        private Window GetWindow(Type type)
+        public static string GetCurrentLayout()
         {
-            for (int i = 0; i < _windows.Count; i++)
-                if (_windows[i].GetType() == type)
-                    return _windows[i];
-            return null;
+            return Instance._currentLayout.Name;
         }
 
-        private void Serialize()
+        public static List<string> GetLayouts()
         {
-            // Serialize to XML
-            DataContractSerializer serializer = new DataContractSerializer(typeof(LayoutData));
-            using (FileStream fs = new FileStream($"{Application.persistentDataPath}/layout.xml", FileMode.Create))
-            {
-                serializer.WriteObject(fs, this);
-            }
+            return Instance.GetLayoutsImpl();
         }
 
-        private void Deserialize()
+        public static int GetLayoutCount()
         {
-            // Deserialize from XML
-            DataContractSerializer serializer = new DataContractSerializer(typeof(LayoutData));
-            using (FileStream fs = new FileStream($"{Application.persistentDataPath}/layout.xml", FileMode.Open))
+            return Instance._layouts.Count;
+        }
+
+        private List<string> GetLayoutsImpl()
+        {
+            List<string> layouts = new List<string>();
+            for (int i = 0; i < _layouts.Count; i++)
+                layouts.Add(_layouts[i].Name);
+            return layouts;
+        }
+
+        public static void RemoveLayout(string name)
+        {
+            Instance.RemoveLayoutImpl(name);
+        }
+
+        private void RemoveLayoutImpl(string name)
+        {
+            // Don't allow to remove the last layout.
+            if (_layouts.Count <= 1)
+                return;
+
+            for (int i = 0; i < _layouts.Count; i++)
             {
-                LayoutData layoutData = (LayoutData)serializer.ReadObject(fs);
-                
-                for (int i = 0; i < layoutData.Windows.Count; i++)
+                LayoutData layout = _layouts[i];
+                if (layout.Name == name)
                 {
-                    WindowData windowData = layoutData.Windows[i];
-                    LoadWindow(windowData, null);
+                    _layouts.RemoveAt(i);
+
+                    // If the removed layout is also selected then a new layout have to be loaded.
+                    if (_currentLayout == layout)
+                    {
+                        _currentLayout = _layouts[0];
+                        LoadLayout(_currentLayout);
+                    }
+
+                    return;
                 }
             }
         }
 
-        private void LoadWindow(WindowData windowData, Window parent)
+        public static void MarkDirty()
         {
+            if (_isLoading)
+                return;
+
+            Instance._markedDirty = true;
+        }
+
+        private void Save()
+        {
+            _markedDirty = false;
+
+            Directory.CreateDirectory($"{Path}");
+            Directory.CreateDirectory($"{Path}/Layouts");
+
+            ManagerData managerData = new ManagerData(_currentLayout, _layouts);
+
+            if (_currentLayout != null)
+                SaveLayoutImpl(_currentLayout.Name);
+
+            string managerPath = $"{Path}/Manager.dat";
+            var bf = new BinaryFormatter();
+            using FileStream fs = File.Open(managerPath, FileMode.OpenOrCreate, FileAccess.Write);
+            bf.Serialize(fs, managerData);
+        }
+
+        private void Load()
+        {
+            Directory.CreateDirectory($"{Path}");
+            Directory.CreateDirectory($"{Path}/Layouts");
+
+            string managerPath = $"{Path}/Manager.dat";
+            if (!File.Exists(managerPath))
+                return;
+
+            _isLoading = true;
+
+            BinaryFormatter managerBinaryFormatter = new BinaryFormatter();
+            using FileStream managerFileStream = File.Open(managerPath, FileMode.Open);
+            ManagerData managerData = (ManagerData)managerBinaryFormatter.Deserialize(managerFileStream);
+
+            for (int i = 0; i < managerData.Layouts.Count; i++)
+            {
+                LayoutData layoutData = null;
+
+                string layoutPath = $"{Path}/Layouts/{managerData.Layouts[i]}.layout";
+                if (File.Exists(layoutPath))
+                {
+                    BinaryFormatter layoutBinaryFormatter = new BinaryFormatter();
+                    using FileStream layoutFileStream = File.Open(layoutPath, FileMode.Open);
+                    layoutData = (LayoutData)layoutBinaryFormatter.Deserialize(layoutFileStream);
+                    _layouts.Add(layoutData);
+                }
+                else
+                    continue;
+
+                if (layoutData != null && layoutData.Name == managerData.CurrentLayout)
+                    LoadLayout(layoutData);
+            }
+
+            _isLoading = false;
+        }
+
+        public static void SaveLayout(string name)
+        {
+            Instance.SaveLayoutImpl(name);
+            Instance.Save();
+
+            Debug.Log($"Layout '{name}' saved.");
+        }
+
+        private void SaveLayoutImpl(string name)
+        {
+            LayoutData layoutData = null;
+
+            // If layout with the input name already exists then override it.
+            for (int i = 0; i < _layouts.Count; i++)
+            {
+                if (_layouts[i].Name == name)
+                {
+                    layoutData = new LayoutData(name, _controllers.Where(item => item.Parent == null).ToList());
+                    _layouts[i] = layoutData;
+                    _currentLayout = layoutData;
+                }
+            }
+
+            // Create new layout with the input name.
+            if (layoutData == null)
+            {
+                layoutData = new LayoutData(name, _controllers.Where(item => item.Parent == null).ToList());
+                _currentLayout = layoutData;
+                _layouts.Add(layoutData);
+            }
+
+            string resultPath = $"{Path}/Layouts/{name}.layout";
+            var bf = new BinaryFormatter();
+            using FileStream fs = File.Open(resultPath, FileMode.OpenOrCreate, FileAccess.Write);
+            bf.Serialize(fs, layoutData);
+        }
+
+        public static void LoadLayout(string name)
+        {
+            Instance.LoadLayoutImpl(name);
+        }
+
+        private void LoadLayoutImpl(string name)
+        {
+            // If a layout with the input name already exists then override it.
+            for (int i = 0; i < _layouts.Count; i++)
+            {
+                if (_layouts[i].Name == name)
+                {
+                    LoadLayout(_layouts[i]);
+                    return;
+                }
+            }
+        }
+
+        private void LoadLayout(LayoutData layoutData)
+        {
+            _currentLayout = layoutData;
+
+            // Destroy the current layout.
+            for (int i = 0; i < _controllers.Count; i++)
+                if (_controllers[i] != null)
+                    DestroyImmediate(_controllers[i].gameObject);
+
+            _controllers.Clear();
+
+            // Load the new layout.
+            for (int i = 0; i < layoutData.Windows.Count; i++)
+                LoadWindow(layoutData.Windows[i], null);
+        }
+
+        private WindowController LoadWindow(WindowData windowData, WindowController parent)
+        {
+            Transform transformParent;
+            if (parent == null)
+                transformParent = windowData.IsFloating ? Overlayer : Underlayer;
+            else
+                transformParent = parent.transform;
+
+            WindowController controller = Instantiate(_windowPrefab, transformParent);
+            controller.RectTransform.SetPivot(Pivot.MiddleCenter);
+            controller.RectTransform.SetAnchor(Anchor.MiddleCenter);
+            _controllers.Add(controller);
+
+            controller.IsFloating = windowData.IsFloating;
+
             if (windowData.Children == null || windowData.Children.Count == 0)
             {
-                // Create the root window from the firt tabs.
-                Window rootWindow = CreateWindow(windowData.Tabs[0].Type);
-                if (parent != null)
-                    parent.Controller.Attach(rootWindow.Controller, rootWindow, windowData.LayoutType);
+                // Create the root window from the first tabs.
+                Window rootWindow = CreateWindow(windowData.Tabs[0].Type, controller);
                 if (windowData.Tabs[0].Active)
                     rootWindow.Controller.Header.Select(0);
 
@@ -317,31 +522,66 @@ namespace SimpleWindow
                 for (int i = 1; i < windowData.Tabs.Count; i++)
                 {
                     TabData tabData = windowData.Tabs[i];
-                    Window window = CreateWindow(tabData.Type);
-                    rootWindow.Controller.Header.AddWindow(window);
+                    CreateWindow(tabData.Type, controller);
 
                     if (tabData.Active)
                         rootWindow.Controller.Header.Select(i);
                 }
 
                 // If the window is under layer then we have to set the center normalized position.
-                if (!rootWindow.Controller.IsFloating)
+                if (!windowData.IsFloating)
                     rootWindow.Controller.SetCenterNormalizedPosition(windowData.CenterNormalizedPosition);
 
                 // If the window is floating when we have to set the size and the position.
-                else if (rootWindow.Controller.IsFloating)
+                else
                 {
-                    rootWindow.Controller.SetNormalizedSize(windowData.NormalizedSize);
-                    rootWindow.Controller.SetNormalizedPosition(windowData.NormalizedPosition);
+                    rootWindow.Controller.SetNormalizedSize(new Vector2(windowData.NormalizedSizeX, windowData.NormalizedSizeY));
+                    rootWindow.Controller.SetNormalizedPosition(new Vector2(windowData.NormalizedPositionX, windowData.NormalizedPositionY));
                 }
             }
-            else if (windowData.Children.Count == 2)
+            else
             {
+                Destroy(controller.Header.gameObject);
+                Destroy(controller.Content.gameObject);
+                Destroy(controller.FrontLayer.gameObject);
+
+                List<WindowController> children = new List<WindowController>();
                 for (int i = 0; i < windowData.Children.Count; i++)
+                    children.Add(LoadWindow(windowData.Children[i], controller));
+
+                // If the window is under layer then we have to set the center normalized position.
+                if (!windowData.IsFloating)
+                    controller.SetCenterNormalizedPosition(windowData.CenterNormalizedPosition);
+
+                // If the window is floating when we have to set the size and the position.
+                else
                 {
-                    LoadWindow(windowData.Children[i], parent);
+
+                    controller.SetNormalizedSize(new Vector2(windowData.NormalizedSizeX, windowData.NormalizedSizeY));
+                    controller.SetNormalizedPosition(new Vector2(windowData.NormalizedPositionX, windowData.NormalizedPositionY));
                 }
+
+                controller.CreateGroupLayout(windowData.LayoutType);
+                controller.AttachChildren(children);
             }
+
+            controller.Process();
+            return controller;
+        }
+
+        private void OnValidate()
+        {
+            name = GetType().Name;
+
+            // Configure the underlayer.
+            _underlayer.SetAnchor(Anchor.Stretch);
+            _underlayer.SetPivot(Pivot.MiddleCenter);
+            _underlayer.SetOffset(_padding.left, _padding.right, _padding.top, _padding.bottom);
+
+            // Configure the overlayer.
+            _overlayer.SetAnchor(Anchor.Stretch);
+            _overlayer.SetPivot(Pivot.MiddleCenter);
+            _overlayer.SetOffset(0, 0, 0, 0);
         }
     }
 }
