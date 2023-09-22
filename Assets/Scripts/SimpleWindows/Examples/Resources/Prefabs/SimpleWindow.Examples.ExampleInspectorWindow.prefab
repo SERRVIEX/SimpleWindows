@@ -148,6 +148,7 @@ GameObject:
   - component: {fileID: 3270699661913603138}
   - component: {fileID: 3270699661913603142}
   - component: {fileID: 1509115678887409601}
+  - component: {fileID: 7345807912982392235}
   m_Layer: 5
   m_Name: SimpleWindow.Examples.ExampleInspectorWindow
   m_TagString: Untagged
@@ -227,8 +228,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   Controller: {fileID: 0}
-  <Title>k__BackingField: Inspector
+  <RectTransform>k__BackingField: {fileID: 3270699661913603136}
+  <Label>k__BackingField: Inspector
   <Icon>k__BackingField: {fileID: 21300000, guid: 9f499aa9f70a9d943b55192fb12b1f0a, type: 3}
+  <CanvasGroup>k__BackingField: {fileID: 7345807912982392235}
+  <Layout>k__BackingField: {fileID: 1509115678887409601}
 --- !u!114 &1509115678887409601
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -249,3 +253,15 @@ MonoBehaviour:
   m_FlexibleWidth: -1
   m_FlexibleHeight: -1
   m_LayoutPriority: 1
+--- !u!225 &7345807912982392235
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3270699661913603143}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0

@@ -123,7 +123,7 @@ namespace SimpleWindow.Internal
                 case Position.Left:
                     _rectTransform.SetAnchor(Anchor.StretchLeft);
                     _rectTransform.SetPivot(Pivot.MiddleLeft);
-                    _rectTransform.SetWidth(10);
+                    _rectTransform.SetWidth(4);
                     _rectTransform.anchoredPosition = new Vector2(0, 0);
                     _rectTransform.SetTop(10);
                     _rectTransform.SetBottom(10);
@@ -132,7 +132,7 @@ namespace SimpleWindow.Internal
                 case Position.Right:
                     _rectTransform.SetAnchor(Anchor.StretchRight);
                     _rectTransform.SetPivot(Pivot.MiddleRight);
-                    _rectTransform.SetWidth(10);
+                    _rectTransform.SetWidth(4);
                     _rectTransform.anchoredPosition = new Vector2(0, 0);
                     _rectTransform.SetTop(10);
                     _rectTransform.SetBottom(10);
@@ -141,7 +141,7 @@ namespace SimpleWindow.Internal
                 case Position.Top:
                     _rectTransform.SetAnchor(Anchor.StretchTop);
                     _rectTransform.SetPivot(Pivot.TopCenter);
-                    _rectTransform.SetHeight(10);
+                    _rectTransform.SetHeight(4);
                     _rectTransform.anchoredPosition = new Vector2(0, 0);
                     _rectTransform.SetLeft(10);
                     _rectTransform.SetRight(10);
@@ -150,7 +150,7 @@ namespace SimpleWindow.Internal
                 case Position.Bottom:
                     _rectTransform.SetAnchor(Anchor.StretchBottom);
                     _rectTransform.SetPivot(Pivot.BottomCenter);
-                    _rectTransform.SetHeight(10);
+                    _rectTransform.SetHeight(4);
                     _rectTransform.anchoredPosition = new Vector2(0, 0);
                     _rectTransform.SetLeft(10);
                     _rectTransform.SetRight(10);

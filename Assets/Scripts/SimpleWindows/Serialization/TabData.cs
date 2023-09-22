@@ -21,6 +21,7 @@ namespace SimpleWindow.Serialization
         public TabData(TabView tab)
         {
             Type = tab.Window.GetType();
+            Active = tab.Active;
         }
     }
 }

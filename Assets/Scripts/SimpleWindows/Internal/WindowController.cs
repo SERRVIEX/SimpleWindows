@@ -5,71 +5,38 @@ namespace SimpleWindow.Internal
     using UnityEngine;
     using UnityEngine.UI;
     using UnityEngine.EventSystems;
-    using System.Linq;
 
     [ExecuteAlways]
     [RequireComponent(typeof(RectTransform))]
     [RequireComponent(typeof(Image))]
     [RequireComponent(typeof(LayoutElement))]
-    public class WindowController : MonoBehaviour, IPointerMoveHandler, IDragHandler, IEndDragHandler, IPointerEnterHandler, IPointerDownHandler, IPointerExitHandler
+    public sealed class WindowController : MonoBehaviour, IPointerMoveHandler, IPointerEnterHandler, IPointerDownHandler, IPointerExitHandler, IBeginDragHandler, IDragHandler, IEndDragHandler
     {
-        /// <summary>
-        /// The window is selected automatically when the mouse is inside it.
-        /// </summary>
-        public static WindowController Selected { get; protected set; }
-
-        [field: SerializeField] public RectTransform RectTransform { get; protected set; }
-
-        /// <summary>
-        /// Is mouse inside the window rect.
-        /// </summary>
-        public bool IsPointerInside;
-
-        /// <summary>
-        /// Detect if the pointer is near the window border.
-        /// </summary>
-        protected bool IsPointerOnBorder;
-
-        /// <summary>
-        /// Which border is closer to the mouse.
-        /// </summary>
-        public Border ClosestBorder { get; protected set; }
-
-        protected Vector3 StartPointerPosition;
-        protected float StartSplitLinePosition;
-
         /// <summary>
         /// Min window size.
         /// </summary>
-        public Vector3 MinSize => new Vector3(300, 150);
-
-        public bool IsFloating
-        {
-            get => _isFloating;
-            set => _isFloating = value;
-        }
-
-        public bool _isFloating;
+        public Vector3 MinSize = new Vector3(300, 150);
 
         /// <summary>
-        /// Here can be 2 or 0 childs.
-        /// When this window is not split, it has no children.
-        /// When the window is splitted then this one is clone and converted to a child, 
-        /// and another child is came from arguments. 
+        /// The window is selected automatically when the mouse is inside it.
         /// </summary>
-        [SerializeField] public List<WindowController> Children = new List<WindowController>();
+        public static WindowController Selected { get; private set; }
+
+        [field: SerializeField] public RectTransform RectTransform { get; private set; }
+
+        [HideInInspector] public List<WindowController> Children = new List<WindowController>();
         public WindowController this[int index] => Children[index];
 
         /// <summary>
         /// On which axis will align the child windows.
         /// </summary>
-        public LayoutType Layout { get; protected set; }
+        public LayoutType Layout { get; private set; }
 
         [field: SerializeField] public Header Header { get; private set; }
         [field: SerializeField] public Actions Actions { get; private set; }
         [field: SerializeField] internal BoundsController BoundsController { get; private set; }
 
-        [field: SerializeField] public WindowController Parent { get; private set; }
+        public WindowController Parent { get; private set; }
 
         [field: SerializeField] public Image Background { get; private set; }
         [field: SerializeField] public LayoutElement LayoutElement { get; private set; }
@@ -77,9 +44,24 @@ namespace SimpleWindow.Internal
         [field: SerializeField] public RectTransform FrontLayer { get; private set; }
 
         /// <summary>
-        /// Set the middle position between the childs (%).
+        /// Set the middle position between the childs (0..99%).
         /// </summary>
-        public float CenterNormalizedPosition;
+        public float CenterNormalizedPosition { get; private set; }
+
+        /// <summary>
+        /// Detect if the pointer is near the window border.
+        /// </summary>
+        private bool _isPointerOnBorder;
+
+        /// <summary>
+        /// Which border is closer to the mouse.
+        /// </summary>
+        public Border ClosestBorder { get; private set; }
+
+        private Vector3 _startPointerPosition;
+        private float _startSplitLinePosition;
+
+        [HideInInspector] public bool IsFloating;
 
         /// <summary>
         /// Determine if the border can be dragged.
@@ -97,24 +79,6 @@ namespace SimpleWindow.Internal
 
         // Methods
 
-        private void Update()
-        {
-            if (Children.Count > 0)
-                IsPointerInside = false;
-        }
-
-        protected void OnValidate()
-        {
-            if (RectTransform == null)
-                RectTransform = GetComponent<RectTransform>();
-
-            if (Background == null)
-                Background = GetComponent<Image>();
-
-            if (LayoutElement == null)
-                LayoutElement = GetComponent<LayoutElement>();
-        }
-
         public void Process()
         {
             Actions.SetFloatActiveActions(IsFloating);
@@ -130,8 +94,37 @@ namespace SimpleWindow.Internal
             if (BoundsController != null)
             {
                 BoundsController.transform.SetAsLastSibling();
-                BoundsController.gameObject.SetActive(Parent == null);
+                BoundsController.gameObject.SetActive(Parent == null && IsFloating);
             }
+
+            SetTheName(this, 0);
+        }
+
+        private void SetTheName(WindowController controller, int deep)
+        {
+            if(controller.Parent != null)
+            {
+                SetTheName(controller.Parent, deep + 1);
+                return;
+            }
+
+            name = "Window" + deep + $" ({GetTabName()})";
+        }
+
+        private string GetTabName()
+        {
+            string[] r = null;
+
+            if (Header != null)
+            {
+                r = new string[Header.Tabs.Count];
+                for (int i = 0; i < r.Length; i++)
+                {
+                    r[i] = Header.Tabs[i].Window.Label;
+                }
+            }
+
+            return string.Join(", ", r);
         }
 
         public bool IsRoot() => IsRoot(this, 0);
@@ -171,8 +164,11 @@ namespace SimpleWindow.Internal
         {
             // Make new window as a child of this.
             controller.transform.SetParent(transform);
+            controller.transform.localPosition = Vector3.zero;
             controller.transform.localScale = Vector3.one;
             controller.Parent = this;
+            controller.IsFloating = IsFloating;
+
             window.Controller = controller;
 
             // Clone this window as a child and the original convert into a group.
@@ -227,6 +223,7 @@ namespace SimpleWindow.Internal
             // Create new window.
             WindowController controller = new GameObject("Window").AddComponent<WindowController>();
             controller.transform.SetParent(transform);
+            controller.transform.localPosition = Vector3.zero;
             controller.transform.localScale = Vector3.one;
 
             controller.Parent = this;
@@ -275,21 +272,6 @@ namespace SimpleWindow.Internal
             return controller;
         }
 
-        /// <summary>
-        /// Attach children when the layout is loading.
-        /// </summary>
-        public void AttachChildren(List<WindowController> children)
-        {
-            Children.AddRange(children);
-            for (int i = 0; i < children.Count; i++)
-            {
-                children[i].Parent = this;
-                children[i].Process();
-            }
-
-            CreateActions(children[0].Actions);
-        }
-
         private void CreateActions(Actions original)
         {
             Actions = Instantiate(original, transform);
@@ -313,14 +295,6 @@ namespace SimpleWindow.Internal
             BoundsController.gameObject.SetActive(Parent == null);
         }
 
-        public void CreateGroupLayout(LayoutType type)
-        {
-            if (type == LayoutType.Horizontal)
-                CreateHorizontalGroupLayout();
-            else
-                CreateVerticaGroupLayout();
-        }
-
         /// <summary>
         /// Add a horizontal layout to the group to show the childs correct.
         /// Call this function when the new window is near to left or right border.
@@ -340,7 +314,7 @@ namespace SimpleWindow.Internal
             for (int i = 0; i < Children.Count; i++)
             {
                 WindowController child = Children[i];
-                child.LayoutElement.preferredWidth = RectTransform.rect.width * CenterNormalizedPosition / 100;
+                child.LayoutElement.preferredWidth = RectTransform.rect.width * CenterNormalizedPosition / 100 * WindowsManager.AspectRatioFactor;
                 child.LayoutElement.preferredHeight = 0;
             }
 
@@ -367,7 +341,7 @@ namespace SimpleWindow.Internal
             {
                 WindowController child = Children[i];
                 child.LayoutElement.preferredWidth = 0;
-                child.LayoutElement.preferredHeight = RectTransform.rect.height * CenterNormalizedPosition / 100;
+                child.LayoutElement.preferredHeight = RectTransform.rect.height * CenterNormalizedPosition / 100 * WindowsManager.AspectRatioFactor;
             }
 
             Layout = LayoutType.Vertical;
@@ -527,11 +501,11 @@ namespace SimpleWindow.Internal
             {
                 size[0] = controller.RectTransform.rect.width * controller.CenterNormalizedPosition / 100;
                 size[1] = controller.RectTransform.rect.width - size[0];
-
+                
                 for (int i = 0; i < controller.Children.Count; i++)
                 {
                     WindowController child = controller.Children[i];
-                    child.LayoutElement.preferredWidth = size[i];
+                    child.LayoutElement.preferredWidth = size[i] * WindowsManager.AspectRatioFactor;
                     child.LayoutElement.preferredHeight = 0;
                 }
             }
@@ -544,137 +518,202 @@ namespace SimpleWindow.Internal
                 {
                     WindowController child = controller.Children[i];
                     child.LayoutElement.preferredWidth = 0;
-                    child.LayoutElement.preferredHeight = size[i];
+                    child.LayoutElement.preferredHeight = size[i] * WindowsManager.AspectRatioFactor;
                 }
             }
         }
 
+        public void OnPointerEnter(PointerEventData eventData)
+        {
+            // Body must be performed only in the deepest child that never has children.
+            if (Children.Count == 0)
+                Selected = this;
+        }
+
         public void OnPointerDown(PointerEventData eventData)
         {
-            if (IsPointerOnBorder && _canBeDragged)
+            // Body must be performed only in the deepest child that
+            // never has children and if the pointer is on its borders.
+            if (Children.Count == 0 && _isPointerOnBorder)
             {
-                _isDragging = true;
-                StartPointerPosition = Input.mousePosition;
-                StartSplitLinePosition = Parent.CenterNormalizedPosition;
+                WindowController draggable = GetDraggableController(this);
+                if (draggable != null)
+                    draggable._isDragging = true;
             }
+        }
+
+        public void OnBeginDrag(PointerEventData eventData)
+        {
+            // Body must be performed only in the deepest child that
+            // never has children and if the pointer is on its borders.
+            if (Children.Count == 0 && _isPointerOnBorder)
+            {
+                WindowController controller = GetDraggableController(this);
+                if (controller != null)
+                    controller.OnBeginDrag();
+            }
+        }
+
+        /// <summary>
+        /// Return the passed controller if it can be dragged or
+        /// loop through its parents and search for draggable controller.
+        /// </summary>
+        /// <param name="controller">Target controller.</param>
+        /// <returns>A draggable controller or null.</returns>
+        private WindowController GetDraggableController(WindowController controller)
+        {
+            if(controller != null)
+            {
+                if(controller._isPointerOnBorder && controller._canBeDragged)
+                    return controller;
+
+                return controller.GetDraggableController(controller.Parent);
+            }
+
+            return null;
+        }
+
+        private void OnBeginDrag()
+        {
+            _startPointerPosition = Input.mousePosition;
+            _startSplitLinePosition = Parent.CenterNormalizedPosition;
         }
 
         public void OnDrag(PointerEventData eventData)
         {
-            if (!_isDragging)
-                return;
+            WindowController controller = GetDraggingController(this);
+            if (controller != null)
+                controller.OnDrag();
+        }
 
-            float diff = Parent.Layout == LayoutType.Horizontal ? Input.mousePosition.x - StartPointerPosition.x : StartPointerPosition.y - Input.mousePosition.y;
+        /// <summary>
+        /// Return a controller that is in the dragging state.
+        /// </summary>
+        /// <param name="controller">Target controller.</param>
+        /// <returns>A controller in a dragging state or a null.</returns>
+        private WindowController GetDraggingController(WindowController controller)
+        {
+            if (controller != null)
+            {
+                if (controller._isDragging)
+                    return controller;
+
+                return controller.GetDraggingController(controller.Parent);
+            }
+
+            return null;
+        }
+
+        private void OnDrag()
+        {
+            float diff = Parent.Layout == LayoutType.Horizontal ? Input.mousePosition.x - _startPointerPosition.x : _startPointerPosition.y - Input.mousePosition.y;
             float max = Parent.Layout == LayoutType.Horizontal ? Parent.RectTransform.rect.width : Parent.RectTransform.rect.height;
 
-            float start = max * StartSplitLinePosition / 100;
+            float start = max * _startSplitLinePosition / 100;
             float value = Mathf.Clamp(start + diff, 0, max);
             float percent = value / max * 100;
+
             Parent.CenterNormalizedPosition = Mathf.Clamp(percent, 10f, 90f);
             UpdateLayouts(Parent);
         }
 
         public void OnEndDrag(PointerEventData eventData)
         {
-            if (!_isDragging)
+            if (Children.Count != 0)
                 return;
-            _isDragging = false;
+         
+            OnEndDrag();
+            WindowsManager.MarkDirty();
         }
 
-        public void OnPointerEnter(PointerEventData eventData)
+        private void OnEndDrag()
         {
-            if (Children.Count == 0)
-            {
-                Selected = this;
-                IsPointerInside = true;
-            }
+            _isDragging = false;
+            if (Parent != null)
+                Parent.OnEndDrag();
         }
 
         public void OnPointerMove(PointerEventData eventData)
         {
+            // Stop the method in the drag state.
             if (_isDragging)
                 return;
 
-            if (Children.Count == 2)
-                return;
+            // Body must be performed only in the deepest child that never has children.
+            if (Children.Count == 0)          
+                ProcessPointerMove(eventData);
+        }
 
-            ClosestBorder = Border.None;
+        private void ProcessPointerMove(PointerEventData eventData)
+        {
+            if (Parent != null)
+                Parent.ProcessPointerMove(eventData);
 
             Vector2 localPosition = eventData.PointerDataToRelativePos(RectTransform);
+
+            _isPointerOnBorder = false;
+            ClosestBorder = Border.None;
+            _canBeDragged = false;
+
             if (Parent == null)
             {
                 if (localPosition.x < Constants.BorderDetectionThreshold)
                 {
-                    IsPointerOnBorder = true;
+                    _isPointerOnBorder = true;
                     ClosestBorder = Border.Left;
                 }
                 else if (localPosition.x > RectTransform.rect.width - Constants.BorderDetectionThreshold)
                 {
-                    IsPointerOnBorder = true;
+                    _isPointerOnBorder = true;
                     ClosestBorder = Border.Right;
                 }
                 else if (localPosition.y < Constants.BorderDetectionThreshold)
                 {
-                    IsPointerOnBorder = true;
+                    _isPointerOnBorder = true;
                     ClosestBorder = Border.Bottom;
                 }
                 else if (localPosition.y > RectTransform.rect.height - Constants.BorderDetectionThreshold)
                 {
-                    IsPointerOnBorder = true;
+                    _isPointerOnBorder = true;
                     ClosestBorder = Border.Top;
                 }
             }
             else
             {
-                if (Parent.Children.Count == 0)
-                    return;
-
                 if (localPosition.x < Constants.BorderDetectionThreshold)
                 {
-                    IsPointerOnBorder = true;
+                    _isPointerOnBorder = true;
                     ClosestBorder = Border.Left;
                 }
                 else if (localPosition.x > RectTransform.rect.width - Constants.BorderDetectionThreshold)
                 {
-                    IsPointerOnBorder = true;
+                    _isPointerOnBorder = true;
                     ClosestBorder = Border.Right;
                 }
                 else if (localPosition.y < Constants.BorderDetectionThreshold)
                 {
-                    IsPointerOnBorder = true;
+                    _isPointerOnBorder = true;
                     ClosestBorder = Border.Bottom;
                 }
                 else if (localPosition.y > RectTransform.rect.height - Constants.BorderDetectionThreshold)
                 {
-                    IsPointerOnBorder = true;
+                    _isPointerOnBorder = true;
                     ClosestBorder = Border.Top;
                 }
 
+                _canBeDragged = true;
+
                 if (Parent.Layout == LayoutType.Horizontal)
                 {
-                    if (Parent[1] == this && localPosition.x < Constants.BorderDetectionThreshold)
-                    {
-                        _canBeDragged = true;
+                    if (Parent[1] == this && localPosition.x < Constants.BorderDetectionThreshold ||
+                        Parent[0] == this && localPosition.x > RectTransform.rect.width - Constants.BorderDetectionThreshold)
                         return;
-                    }
-                    else if (Parent[0] == this && localPosition.x > RectTransform.rect.width - Constants.BorderDetectionThreshold)
-                    {
-                        _canBeDragged = true;
-                        return;
-                    }
                 }
                 else if (Parent.Layout == LayoutType.Vertical)
                 {
-                    if (Parent[0] == this && localPosition.y < Constants.BorderDetectionThreshold)
-                    {
-                        _canBeDragged = true;
+                    if (Parent[0] == this && localPosition.y < Constants.BorderDetectionThreshold ||
+                        Parent[1] == this && localPosition.y > RectTransform.rect.height - Constants.BorderDetectionThreshold)
                         return;
-                    }
-                    else if (Parent[1] == this && localPosition.y > RectTransform.rect.height - Constants.BorderDetectionThreshold)
-                    {
-                        _canBeDragged = true;
-                        return;
-                    }
                 }
             }
 
@@ -683,16 +722,18 @@ namespace SimpleWindow.Internal
 
         public void OnPointerExit(PointerEventData eventData)
         {
-            IsPointerInside = false;
-            IsPointerOnBorder = false;
+            //_isDragging = false;
             Selected = null;
+            _isPointerOnBorder = false;
+            ClosestBorder = Border.None;
+
+            if(Parent != null)
+                Parent.OnPointerExit(eventData);
         }
 
-        public void SetCenterNormalizedPosition(float value)
+        public void LoadCenterNormalizedPosition(float value)
         {
             CenterNormalizedPosition = value;
-            if(Children.Count > 0)
-                UpdateLayouts(this);
         }
 
         public Vector2 GetNormalizedSize()
@@ -706,7 +747,7 @@ namespace SimpleWindow.Internal
             return size;
         }
 
-        public void SetNormalizedSize(Vector2 value)
+        public void LoadNormalizedSize(Vector2 value)
         {
             RectTransform.SetSize(new Vector2(value.x * WindowsManager.RectTransform.rect.width, value.y * WindowsManager.RectTransform.rect.height));
         }
@@ -722,9 +763,56 @@ namespace SimpleWindow.Internal
             return position;
         }
 
-        public void SetNormalizedPosition(Vector2 position)
+        public void LoadNormalizedPosition(Vector2 position)
         {
             RectTransform.localPosition = new Vector3(position.x * WindowsManager.RectTransform.rect.width, position.y * WindowsManager.RectTransform.rect.height, 0);
+        }
+
+        public void LoadChildren(List<WindowController> children)
+        {
+            Children.AddRange(children);
+            for (int i = 0; i < children.Count; i++)
+            {
+                children[i].Parent = this;
+                children[i].Process();
+            }
+
+            CreateActions(children[0].Actions);
+        }
+
+        public void LoadLayoutGroup(LayoutType type)
+        {
+            Layout = type;
+
+            HorizontalOrVerticalLayoutGroup layout;
+            if (type == LayoutType.Horizontal)
+                layout = gameObject.AddComponent<HorizontalLayoutGroup>();
+
+            else
+                layout = gameObject.AddComponent<VerticalLayoutGroup>();
+
+            layout.childForceExpandWidth = true;
+            layout.childForceExpandHeight = true;
+            layout.childControlWidth = true;
+            layout.childControlHeight = true;
+            layout.childScaleWidth = true;
+            layout.childScaleHeight = true;
+           
+            UpdateLayouts(this);
+        }
+
+        private void OnValidate()
+        {
+            if (RectTransform == null)
+                RectTransform = GetComponent<RectTransform>();
+
+            if (Background == null)
+                Background = GetComponent<Image>();
+
+            Background.raycastPadding = Vector4.one * Constants.BorderDetectionThreshold;
+
+            if (LayoutElement == null)
+                LayoutElement = GetComponent<LayoutElement>();
         }
     }
 }

@@ -89,9 +89,6 @@ namespace SimpleWindow
                                     bottom: -(int)RectTransform.rect.height / 2 + _padding.bottom);
 
             AspectRatioFactor = CanvasScaler.referenceResolution.x / Screen.width;
-
-            Debug.Log($"Windows Path: {Path}");
-            Load();
         }
 
         private void Update()
@@ -370,6 +367,48 @@ namespace SimpleWindow
             Instance._markedDirty = true;
         }
 
+        /// <summary>
+        /// Restore default layouts.
+        /// </summary>
+        public static void Restore()
+        {
+            Instance.RestoreImpl();
+        }
+
+        private void RestoreImpl()
+        {
+            string streamingPath = $"{Application.streamingAssetsPath}/Windows";
+            if (!Directory.Exists(streamingPath))
+                return;
+
+            string managerPath = $"{streamingPath}/Manager.data";
+            if (!File.Exists(managerPath))
+                return;
+
+            BinaryFormatter managerBinaryFormatter = new BinaryFormatter();
+            using FileStream managerFileStream = File.Open(managerPath, FileMode.Open);
+            ManagerData managerData = (ManagerData)managerBinaryFormatter.Deserialize(managerFileStream);
+
+            for (int i = 0; i < managerData.Layouts.Count; i++)
+            {
+                string originLayoutPath = $"{streamingPath}/Layouts/{managerData.Layouts[i]}.layout";
+                string targetLayoutPath = $"{Path}/Layouts/{managerData.Layouts[i]}.layout";
+                if (File.Exists(originLayoutPath))
+                {
+                    if (File.Exists(targetLayoutPath))
+                        File.Delete(targetLayoutPath);
+
+                    File.Copy(originLayoutPath, targetLayoutPath);
+
+                    BinaryFormatter layoutBinaryFormatter = new BinaryFormatter();
+                    using FileStream layoutFileStream = File.Open(targetLayoutPath, FileMode.Open);
+                    LayoutData layoutData = (LayoutData)layoutBinaryFormatter.Deserialize(layoutFileStream);
+                    if (layoutData != null && layoutData.Name == managerData.CurrentLayout)
+                        LoadLayout(layoutData);
+                }
+            }
+        }
+
         private void Save()
         {
             _markedDirty = false;
@@ -382,7 +421,7 @@ namespace SimpleWindow
             if (_currentLayout != null)
                 SaveLayoutImpl(_currentLayout.Name);
 
-            string managerPath = $"{Path}/Manager.dat";
+            string managerPath = $"{Path}/Manager.data";
             var bf = new BinaryFormatter();
             using FileStream fs = File.Open(managerPath, FileMode.OpenOrCreate, FileAccess.Write);
             bf.Serialize(fs, managerData);
@@ -390,10 +429,19 @@ namespace SimpleWindow
 
         private void Load()
         {
+            if (!Directory.Exists(Path))
+            {
+                string streamingPath = $"{Application.streamingAssetsPath}/Windows";
+                if (!Directory.Exists(streamingPath))
+                    return;
+
+                DirectoryExtensions.Copy(streamingPath, Path);
+            }
+
             Directory.CreateDirectory($"{Path}");
             Directory.CreateDirectory($"{Path}/Layouts");
 
-            string managerPath = $"{Path}/Manager.dat";
+            string managerPath = $"{Path}/Manager.data";
             if (!File.Exists(managerPath))
                 return;
 
@@ -515,28 +563,32 @@ namespace SimpleWindow
             {
                 // Create the root window from the first tabs.
                 Window rootWindow = CreateWindow(windowData.Tabs[0].Type, controller);
-                if (windowData.Tabs[0].Active)
-                    rootWindow.Controller.Header.Select(0);
 
                 // Add the left tabs to the root window.
                 for (int i = 1; i < windowData.Tabs.Count; i++)
                 {
                     TabData tabData = windowData.Tabs[i];
                     CreateWindow(tabData.Type, controller);
+                }
 
-                    if (tabData.Active)
+                for (int i = 0; i < windowData.Tabs.Count; i++)
+                {
+                    if (windowData.Tabs[i].Active)
+                    {
                         rootWindow.Controller.Header.Select(i);
+                        break;
+                    }
                 }
 
                 // If the window is under layer then we have to set the center normalized position.
                 if (!windowData.IsFloating)
-                    rootWindow.Controller.SetCenterNormalizedPosition(windowData.CenterNormalizedPosition);
+                    rootWindow.Controller.LoadCenterNormalizedPosition(windowData.CenterNormalizedPosition);
 
                 // If the window is floating when we have to set the size and the position.
                 else
                 {
-                    rootWindow.Controller.SetNormalizedSize(new Vector2(windowData.NormalizedSizeX, windowData.NormalizedSizeY));
-                    rootWindow.Controller.SetNormalizedPosition(new Vector2(windowData.NormalizedPositionX, windowData.NormalizedPositionY));
+                    rootWindow.Controller.LoadNormalizedSize(new Vector2(windowData.NormalizedSizeX, windowData.NormalizedSizeY));
+                    rootWindow.Controller.LoadNormalizedPosition(new Vector2(windowData.NormalizedPositionX, windowData.NormalizedPositionY));
                 }
             }
             else
@@ -551,22 +603,26 @@ namespace SimpleWindow
 
                 // If the window is under layer then we have to set the center normalized position.
                 if (!windowData.IsFloating)
-                    controller.SetCenterNormalizedPosition(windowData.CenterNormalizedPosition);
+                    controller.LoadCenterNormalizedPosition(windowData.CenterNormalizedPosition);
 
                 // If the window is floating when we have to set the size and the position.
                 else
                 {
-
-                    controller.SetNormalizedSize(new Vector2(windowData.NormalizedSizeX, windowData.NormalizedSizeY));
-                    controller.SetNormalizedPosition(new Vector2(windowData.NormalizedPositionX, windowData.NormalizedPositionY));
+                    controller.LoadNormalizedSize(new Vector2(windowData.NormalizedSizeX, windowData.NormalizedSizeY));
+                    controller.LoadNormalizedPosition(new Vector2(windowData.NormalizedPositionX, windowData.NormalizedPositionY));
                 }
 
-                controller.CreateGroupLayout(windowData.LayoutType);
-                controller.AttachChildren(children);
+                controller.LoadChildren(children);
+                controller.LoadLayoutGroup(windowData.LayoutType);
             }
 
             controller.Process();
             return controller;
+        }
+
+        public static void LoadLayouts()
+        {
+            Instance.Load();
         }
 
         private void OnValidate()

@@ -314,7 +314,7 @@ RectTransform:
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 0, y: 1}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 10, y: -20}
+  m_SizeDelta: {x: 4, y: -20}
   m_Pivot: {x: 0, y: 0.5}
 --- !u!222 &3687655609213290381
 CanvasRenderer:
@@ -407,7 +407,7 @@ RectTransform:
   m_AnchorMin: {x: 1, y: 0}
   m_AnchorMax: {x: 1, y: 1}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 10, y: -20}
+  m_SizeDelta: {x: 4, y: -20}
   m_Pivot: {x: 1, y: 0.5}
 --- !u!222 &3687655609318018506
 CanvasRenderer:
@@ -814,7 +814,7 @@ RectTransform:
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 1, y: 1}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: -20, y: 10}
+  m_SizeDelta: {x: -20, y: 4}
   m_Pivot: {x: 0.5, y: 1}
 --- !u!222 &3687655609668665609
 CanvasRenderer:
@@ -1074,7 +1074,7 @@ RectTransform:
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 0}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: -20, y: 10}
+  m_SizeDelta: {x: -20, y: 4}
   m_Pivot: {x: 0.5, y: 0}
 --- !u!222 &3687655609947022099
 CanvasRenderer:
@@ -1274,7 +1274,7 @@ MonoBehaviour:
   m_Material: {fileID: 0}
   m_Color: {r: 0.19215687, g: 0.19215687, b: 0.19215687, a: 1}
   m_RaycastTarget: 1
-  m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
+  m_RaycastPadding: {x: 25, y: 25, z: 25, w: 25}
   m_Maskable: 1
   m_OnCullStateChanged:
     m_PersistentCalls:
@@ -1321,19 +1321,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5fcb8326c979fc748ad82698f85d9bd4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  MinSize: {x: 300, y: 150, z: 0}
   <RectTransform>k__BackingField: {fileID: 3687655611021031229}
-  IsPointerInside: 0
-  _isFloating: 0
   Children: []
   <Header>k__BackingField: {fileID: 3687655609381464251}
   <Actions>k__BackingField: {fileID: 6553474042500392246}
   <BoundsController>k__BackingField: {fileID: 8499918004315372360}
-  <Parent>k__BackingField: {fileID: 0}
   <Background>k__BackingField: {fileID: 3687655611021031228}
   <LayoutElement>k__BackingField: {fileID: 3687655611021031360}
   <Content>k__BackingField: {fileID: 3687655609003303459}
   <FrontLayer>k__BackingField: {fileID: 9035384512277574076}
-  CenterNormalizedPosition: 0
+  IsFloating: 0
 --- !u!1 &4243704633310873767
 GameObject:
   m_ObjectHideFlags: 0

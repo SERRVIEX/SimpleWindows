@@ -42,13 +42,13 @@ namespace SimpleWindow.Internal
                 _active = value;
                 if(_active)
                 {
-                    _image.color = new Color32(65, 65, 65, 255);
-                    _title.color = new Color32(239, 239, 239, 255);
+                    _image.color = new Color32(54, 54, 54, 255);
+                    _label.color = Color.white;
                 }
                 else
                 {
-                    _image.color = new Color32(49, 49, 49, 255);
-                    _title.color = new Color32(176, 176, 176, 255);
+                    _image.color = new Color32(37, 37, 37, 255);
+                    _label.color = new Color32(154, 154, 154, 255);
                 }
 
                 Window.gameObject.SetActive(_active);
@@ -60,7 +60,7 @@ namespace SimpleWindow.Internal
         [SerializeField] private Image _image;
         [SerializeField] private CanvasGroup _canvasGroup;
         [SerializeField] private Image _icon;
-        [SerializeField] private TextMeshProUGUI _title;
+        [SerializeField] private TextMeshProUGUI _label;
 
         private Header _headerTemp;
         private int _tabCountTemp;
@@ -76,7 +76,7 @@ namespace SimpleWindow.Internal
         public void Link(Window window)
         {
             Window = window;
-            _title.text = Window.Title;
+            _label.text = Window.Label;
             _icon.sprite = window.Icon;
         }
 
@@ -248,9 +248,14 @@ namespace SimpleWindow.Internal
 
         private void OnValidate()
         {
-            _image = GetComponent<Image>();
-            _canvasGroup = GetComponent<CanvasGroup>();
-            _title = transform.Find("Title").GetComponent<TextMeshProUGUI>();
+            if (_image == null)
+                _image = GetComponent<Image>();
+
+            if (_canvasGroup == null)
+                _canvasGroup = GetComponent<CanvasGroup>();
+
+            if (_label == null)
+                _label = transform.Find("Label").GetComponent<TextMeshProUGUI>();
         }
     }
 }

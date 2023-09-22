@@ -111,32 +111,6 @@ namespace SimpleWindow.Internal
             WindowsManager.MarkDirty();
         }
 
-        public void DestroyTab(TabView item)
-        {
-            Tabs.Remove(item);
-
-            Destroy(item.Window.gameObject);
-            Destroy(item.gameObject);
-
-            if (Tabs.Count == 0)
-                WindowsManager.Destroy(Controller);
-        }
-
-        public bool FindControllerOfType<T>(out TabView item) where T : Window
-        {
-            for (int i = 0; i < Tabs.Count; i++)
-            {
-                if (Tabs[i].Window.GetType() == typeof(T))
-                {
-                    item = Tabs[i];
-                    return true;
-                }
-            }
-
-            item = null;
-            return false;
-        }
-
         public Window GetWindow(WindowController controller)
         {
             for (int i = 0; i < Tabs.Count; i++)
@@ -146,7 +120,7 @@ namespace SimpleWindow.Internal
             return null;
         }
 
-        public void OrderBySiblingIndex() => Tabs.OrderBy(a => a.transform.GetSiblingIndex());
+        public void OrderBySiblingIndex() => Tabs.OrderBy(item => item.transform.GetSiblingIndex());
 
         public void OnPointerEnter(PointerEventData eventData)
         {
@@ -156,20 +130,6 @@ namespace SimpleWindow.Internal
         public void OnPointerExit(PointerEventData eventData)
         {
             Focused = null;
-        }
-
-        public string GetName()
-        {
-            string value = string.Empty;
-
-            for (int i = 0; i < Tabs.Count; i++)
-            {
-                if (Tabs[i].Window != null)
-                    value += Tabs[i].Window.GetType().Name + " | ";
-            }
-            if(value.Length > 3)
-            value = value.Substring(0, value.Length - 2);
-            return value;
         }
 
         private void OnValidate()

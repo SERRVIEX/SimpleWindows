@@ -110,7 +110,7 @@ GameObject:
   - component: {fileID: 7137144699077972187}
   - component: {fileID: 7137144699077972189}
   m_Layer: 5
-  m_Name: Title
+  m_Name: Label
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -392,4 +392,4 @@ MonoBehaviour:
   _image: {fileID: 7137144699481822347}
   _canvasGroup: {fileID: 7137144699481822351}
   _icon: {fileID: 7137144698530717310}
-  _title: {fileID: 7137144699077972187}
+  _label: {fileID: 7137144699077972187}
